@@ -239,7 +239,7 @@ function renderFieldsList(orgId) {
     const typeOpts  = FIELD_TYPES.map(t =>
       `<option value="${t}" ${f.type===t?'selected':''}>${t}</option>`).join('');
     const validOpts = ['none','email','rut','imei','patente-cl','number','min:0'].map(v =>
-      `<option value="${v}" ${(f.validation||'none')===v?'selected':''}>${v}</option>`).join('');
+  `<option value="${v}" ${(f.validation||'none')===v?'selected':''}>${v}</option>`).join('');
 
     const row = document.createElement('div');
     row.className  = 'field-row';
@@ -254,7 +254,7 @@ function renderFieldsList(orgId) {
       <select onchange="orgFieldChange('${orgId}','${f.id}','validation',this.value)">${validOpts}</select>
       <button class="field-required-toggle ${f.required?'on':''}"
         onclick="orgToggleRequired('${orgId}','${f.id}',this)"
-        title="${f.required?'Requerido':'Opcional'}">${f.required?'✓ Req':'Opt'}</button>
+        title="${f.required?'Requerido':'Opcional'}">${f.required?'✓ Req':''}</button>
       <button class="btn sm danger" style="padding:4px 6px"
         onclick="orgRemoveField('${orgId}','${f.id}')">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -294,7 +294,7 @@ function orgToggleRequired(orgId, fid, btn) {
   if (!f) return;
   f.required = !f.required;
   btn.classList.toggle('on', f.required);
-  btn.textContent = f.required ? '✓ Req' : 'Opt';
+  btn.textContent = f.required ? '✓ Req' : '';
   btn.title       = f.required ? 'Requerido' : 'Opcional';
   _saveFieldsToAPI(orgId);
 }

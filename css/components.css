@@ -245,23 +245,37 @@
     tbody tr:hover td { background: rgba(255,255,255,.025); }
 
     /* Input / textarea */
-    .input, .textarea {
-      width: 100%;
-      background: rgba(0,0,0,.2);
-      border: 1px solid var(--border2);
-      border-radius: var(--radius-sm);
-      color: var(--text);
-      padding: 9px 12px;
-      font-size: 13px; font-family: inherit;
-      outline: none;
-      transition: border-color var(--transition), box-shadow var(--transition);
-    }
-    .input:focus, .textarea:focus {
-      border-color: rgba(56,189,248,.35);
-      box-shadow: 0 0 0 3px rgba(56,189,248,.07);
-    }
-    .textarea { min-height: 100px; resize: vertical; }
-    .label { display: block; font-size: 12px; color: var(--text2); margin-bottom: 5px; }
+    /* Input / textarea */
+.input, .textarea {
+  width: 100%;
+  background: rgba(0,0,0,.25);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  padding: 9px 12px;
+  font-size: 13px; font-family: inherit;
+  outline: none;
+  transition: border-color var(--transition), box-shadow var(--transition), background var(--transition);
+  appearance: none;
+  -webkit-appearance: none;
+}
+.input:hover { background: rgba(255,255,255,.04); border-color: rgba(255,255,255,.18); }
+.input:focus, .textarea:focus {
+  border-color: rgba(56,189,248,.45);
+  box-shadow: 0 0 0 3px rgba(56,189,248,.09);
+  background: rgba(56,189,248,.04);
+}
+select.input {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237a97bf' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 30px;
+  cursor: pointer;
+}
+select.input:focus { border-color: rgba(56,189,248,.45); box-shadow: 0 0 0 3px rgba(56,189,248,.09); }
+select.input option { background: #0f1929; color: #dce8f8; }
+.textarea { min-height: 100px; resize: vertical; }
+.label { display: block; font-size: 12px; color: var(--text2); margin-bottom: 5px; }
 
     /* Search bar */
     .search-bar {

@@ -12,6 +12,23 @@ async function doLogin() {
 
   err.classList.remove('show');
 
+  async function enterApp(user) {
+  document.getElementById('login-screen').classList.add('hidden');
+  document.getElementById('app').style.display = 'flex';
+
+  state.user = { ...user, label: ROLE_LABELS[user.role] ?? user.role };
+
+  // Cargar roles custom para el sistema de permisos
+  try { ROLES = await api.get('/roles'); } catch (_) { ROLES = []; }
+
+
+  loadOrgsFromAPI();
+
+  buildNav();
+  navigate('dashboard');
+  loadDashboard?.();
+}
+
   if (!username || !password) {
     err.textContent = 'Ingresa usuario y contraseña.';
     err.classList.add('show');

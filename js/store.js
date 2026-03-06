@@ -9,9 +9,10 @@
  *  - sgl_user   → datos básicos del usuario logueado
  */
 
+
 const ROLE_LABELS = { admin: 'Administrador', user: 'Operador' };
 const FIELD_TYPES = ['text','number','email','tel','date','select','textarea'];
-
+let ROLES = [];  // array desde GET /roles — roles custom
 // ── Estado de sesión ─────────────────────────────────────────────
 let state = {
   user:        null,
@@ -28,14 +29,17 @@ let ORGS  = {};   // objeto keyed by id desde GET /destinations
  * Convierte un destino de la API al formato que usa el frontend
  */
 function destToOrg(dest) {
+  let fields = dest.field_schema ?? [];
+  if (typeof fields === 'string') {
+    try { fields = JSON.parse(fields); } catch (_) { fields = []; }
+  }
   return {
     name:   dest.name,
-    apiUrl: dest.api_url   ?? '',
-    color:  dest.color     ?? '#38bdf8',
-    fields: dest.field_schema ?? [],
+    apiUrl: dest.api_url ?? '',
+    color:  dest.color   ?? '#38bdf8',
+    fields,
   };
 }
-
 /**
  * Convierte el formato interno al body que espera PATCH /destinations/:id
  */

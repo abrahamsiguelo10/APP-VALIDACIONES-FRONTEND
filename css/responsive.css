@@ -130,18 +130,42 @@
     .drag-handle { color: var(--text3); cursor: grab; text-align: center; font-size: 14px; }
     .drag-handle:active { cursor: grabbing; }
     .field-row input, .field-row select {
-      background: rgba(0,0,0,.2); border: 1px solid var(--border2);
-      border-radius: 6px; color: var(--text); padding: 5px 8px;
-      font-size: 12px; font-family: inherit; outline: none; width: 100%;
-    }
-    .field-row input:focus, .field-row select:focus { border-color: rgba(56,189,248,.35); }
-    .field-required-toggle {
-      display: flex; align-items: center; justify-content: center;
-      width: 28px; height: 28px; border-radius: 6px; cursor: pointer;
-      border: 1px solid var(--border2); background: transparent; font-size: 12px;
-      transition: background var(--transition), border-color var(--transition);
-    }
-    .field-required-toggle.on { background: var(--sky-dim); border-color: rgba(56,189,248,.3); color: var(--sky); }
+  background: rgba(0,0,0,.25);
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  color: var(--text);
+  padding: 5px 8px;
+  font-size: 12px; font-family: inherit;
+  outline: none; width: 100%;
+  transition: border-color var(--transition), background var(--transition), box-shadow var(--transition);
+  appearance: none;
+  -webkit-appearance: none;
+}
+.field-row input:hover, .field-row select:hover {
+  background: rgba(255,255,255,.04);
+  border-color: rgba(255,255,255,.18);
+}
+.field-row input:focus, .field-row select:focus {
+  border-color: rgba(56,189,248,.45);
+  box-shadow: 0 0 0 2px rgba(56,189,248,.09);
+  background: rgba(56,189,248,.04);
+}
+.field-row select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%237a97bf' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  padding-right: 24px;
+  cursor: pointer;
+}
+.field-row select option { background: #0f1929; color: #dce8f8; }
+
+/* Excluir el botón toggle del reset de apariencia */
+/* Excluir el botón toggle del reset de apariencia */
+.field-row .field-required-toggle {
+  appearance: revert;
+  -webkit-appearance: revert;
+  padding-right: 8px;
+}
 
 
     /* ── Modal stepper ── */
@@ -183,3 +207,29 @@
     }
     .dest-card:hover { border-color: var(--border2); background: rgba(255,255,255,.04); }
     .dest-card.selected { border-color: rgba(56,189,248,.35); background: var(--sky-glow); }
+   /* Fix botón Requerido */
+.field-required-toggle {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent !important;
+  background-image: none !important;
+  padding: 0 !important;
+  color: var(--text2);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  flex-shrink: 0;
+  margin: 0 auto;
+}
+.field-required-toggle.on {
+  background: var(--sky-dim) !important;
+  border-color: rgba(56,189,248,.3) !important;
+  color: var(--sky) !important;
+}

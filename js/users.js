@@ -39,10 +39,21 @@ function _paintUsersTable() {
 
   tbody.innerHTML = '';
   USERS.forEach(u => {
-    const isMe      = u.username === currentUser;
-    const roleBadge = u.role === 'admin'
-      ? `<span class="badge red">Administrador</span>`
-      : `<span class="badge sky">Operador</span>`;
+    const isMe = u.username === currentUser;
+
+    // Badge de rol: admin fijo, custom por role_id, o Operador por defecto
+    let roleBadge;
+    if (u.role === 'admin') {
+      roleBadge = `<span class="badge red">Administrador</span>`;
+    } else if (u.role_id) {
+      const customRole = ROLES.find(r => r.id === u.role_id);
+      roleBadge = customRole
+        ? `<span class="badge" style="background:rgba(56,189,248,.15);color:var(--sky);border:1px solid rgba(56,189,248,.4)">${customRole.label}</span>`
+        : `<span class="badge sky">Operador</span>`;
+    } else {
+      roleBadge = `<span class="badge sky">Operador</span>`;
+    }
+
     const statusBadge = u.enabled
       ? `<span class="badge green">Activo</span>`
       : `<span class="badge amber">Inactivo</span>`;
@@ -93,19 +104,36 @@ function openUserForm(editingId = null) {
   document.getElementById('uf-password2').value = '';
   document.getElementById('uf-error').style.display = 'none';
 
+  // Construir opciones: roles fijos + roles custom
+  // Los roles custom usan value="custom:{id}" para distinguirlos
+  const roleOptions = [
+    `<option value="user">Operador</option>`,
+    `<option value="admin">Administrador</option>`,
+    ...(ROLES.length ? [`<option disabled>── Roles personalizados ──</option>`] : []),
+    ...ROLES.map(r => `<option value="custom:${r.id}">${r.label}</option>`)
+  ].join('');
+  document.getElementById('uf-role').innerHTML = roleOptions;
+
   if (editingId) {
     const u = USERS.find(x => String(x.id) === String(editingId));
-    document.getElementById('uf-username').value        = u.username;
-    document.getElementById('uf-role').value            = u.role;
-    document.getElementById('uf-username').disabled     = true;
+    if (!u) return;
+    document.getElementById('uf-username').value         = u.username;
+    document.getElementById('uf-username').disabled      = true;
     document.getElementById('uf-pass-label').textContent = 'Nueva contraseña (vacío = sin cambios)';
     document.getElementById('uf-save-btn').textContent   = 'Guardar cambios';
+
+    // Pre-seleccionar rol: custom tiene prefijo "custom:"
+    if (u.role_id) {
+      document.getElementById('uf-role').value = `custom:${u.role_id}`;
+    } else {
+      document.getElementById('uf-role').value = u.role;
+    }
   } else {
-    document.getElementById('uf-username').value        = '';
-    document.getElementById('uf-role').value            = 'user';
-    document.getElementById('uf-username').disabled     = false;
+    document.getElementById('uf-username').value         = '';
+    document.getElementById('uf-username').disabled      = false;
     document.getElementById('uf-pass-label').textContent = 'Contraseña';
     document.getElementById('uf-save-btn').textContent   = 'Guardar usuario';
+    document.getElementById('uf-role').value             = 'user';
   }
 
   form.style.display = 'block';
@@ -119,22 +147,32 @@ function closeUserForm() {
 
 function showUfError(msg) {
   const el = document.getElementById('uf-error');
-  el.textContent    = msg;
-  el.style.display  = 'block';
+  el.textContent   = msg;
+  el.style.display = 'block';
 }
 
 /* ── Guardar usuario (crear o editar) ────────────────────────── */
 async function saveUser() {
-  const editingId = document.getElementById('uf-editing').value;
-  const username  = document.getElementById('uf-username').value.trim().toLowerCase();
-  const role      = document.getElementById('uf-role').value;
-  const pass1     = document.getElementById('uf-password').value;
-  const pass2     = document.getElementById('uf-password2').value;
-  const btn       = document.getElementById('uf-save-btn');
+  const editingId  = document.getElementById('uf-editing').value;
+  const username   = document.getElementById('uf-username').value.trim().toLowerCase();
+  const roleValue  = document.getElementById('uf-role').value; // "user" | "admin" | "custom:xxx"
+  const pass1      = document.getElementById('uf-password').value;
+  const pass2      = document.getElementById('uf-password2').value;
+  const btn        = document.getElementById('uf-save-btn');
 
   document.getElementById('uf-error').style.display = 'none';
 
-  // Validaciones frontend
+  // Resolver role y role_id a partir del valor del select
+  let role, role_id;
+  if (roleValue.startsWith('custom:')) {
+    role    = 'user';                        // sigue siendo 'user' en BD
+    role_id = roleValue.replace('custom:', '');
+  } else {
+    role    = roleValue;                     // 'admin' o 'user'
+    role_id = null;
+  }
+
+  // Validaciones
   if (!editingId && !username)
     return showUfError('El nombre de usuario es requerido.');
   if (!editingId && !/^[a-z0-9_]{3,32}$/.test(username))
@@ -151,12 +189,12 @@ async function saveUser() {
 
   try {
     if (editingId) {
-      const body = { role };
+      const body = { role, role_id };
       if (pass1) body.password = pass1;
       await api.patch(`/users/${editingId}`, body);
       showToast('Usuario actualizado', `"${username}" guardado correctamente.`);
     } else {
-      await api.post('/users', { username, password: pass1, role });
+      await api.post('/users', { username, password: pass1, role, role_id });
       showToast('Usuario creado', `"${username}" agregado correctamente.`);
     }
     closeUserForm();

@@ -16,6 +16,7 @@
   <link rel="stylesheet" href="css/components.css">
   <link rel="stylesheet" href="css/views.css">
   <link rel="stylesheet" href="css/responsive.css">
+  
 </head>
 
 <body>
@@ -264,7 +265,6 @@
               </div>
             </div>
             <div class="result-kv">
-              <div class="kv-box"><div class="k">Cliente</div><div class="v" id="res-cliente">–</div></div>
               <div class="kv-box"><div class="k">RUT</div><div class="v mono" id="res-rut">–</div></div>
               <div class="kv-box"><div class="k">Destinos</div><div class="v" id="res-destinos-count">–</div></div>
               <div class="kv-box"><div class="k">Último ping</div><div class="v" id="res-ping">–</div></div>
@@ -290,7 +290,7 @@
             <p>Gestiona el registro de unidades, importa desde Excel y edita destinos</p>
           </div>
           <div class="page-actions">
-            <button class="btn" onclick="showToast('Export','Funcionalidad próximamente')">
+            <button class="btn" onclick="exportExcel()">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               Exportar Excel
             </button>
@@ -330,14 +330,13 @@
                       <th><input type="checkbox" id="chk-all" onchange="toggleAll(this)" /></th>
                       <th>Patente</th>
                       <th>IMEI</th>
-                      <th>Cliente</th>
                       <th>Destinos</th>
                       <th>Acciones</th>
                     </tr>
                   </thead>
                   <tbody id="admin-tbody">
                     <tr>
-                      <td colspan="6">
+                      <td colspan="5">
                         <div class="empty-state">
                           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
                           <p>No hay datos cargados</p>
@@ -378,11 +377,11 @@
               <div class="card-body" style="display:grid;gap:10px">
                 <div>
                   <label class="label">Archivo .xlsx</label>
-                  <input class="input" type="file" id="excel-file" accept=".xlsx,.xls" />
+                  <input class="input" type="file" id="excel-file" accept=".xlsx,.xls,.csv" />
                 </div>
                 <div style="display:flex;gap:8px">
-                  <button class="btn" style="flex:1" disabled id="btn-preview" onclick="showToast('Preview','Funcionalidad próximamente')">Vista previa</button>
-                  <button class="btn success" style="flex:1" disabled id="btn-import" onclick="showToast('Import','Funcionalidad próximamente')">Importar</button>
+                  <button class="btn" style="flex:1" disabled id="btn-preview" onclick="previewImport()">Vista previa</button>
+                  <button class="btn success" style="flex:1" disabled id="btn-import" onclick="importExcel()">Importar</button>
                 </div>
                 <textarea class="textarea" id="excel-preview" placeholder="Preview JSON aparecerá aquí..." style="min-height:80px;font-family:'DM Mono',monospace;font-size:11px" readonly></textarea>
               </div>
@@ -397,9 +396,11 @@
           <div><h1>Configuración</h1><p>Ajustes de la plataforma, usuarios y organizaciones</p></div>
         </div>
         <div style="display:flex;gap:2px;margin-bottom:24px;border-bottom:1px solid var(--border)">
+          
           <button class="stab active" data-tab="general" onclick="switchSettingsTab('general')">General</button>
           <button class="stab" data-tab="usuarios" onclick="switchSettingsTab('usuarios')">Usuarios</button>
           <button class="stab" data-tab="orgs" onclick="switchSettingsTab('orgs')">Organizaciones</button>
+          <button class="stab" data-tab="roles" onclick="switchSettingsTab('roles')">Roles</button>
         </div>
         <div class="stab-panel" id="stab-general" style="display:grid;gap:16px;max-width:620px">
           <div class="card">
@@ -423,7 +424,7 @@
               <div style="padding:16px;display:grid;gap:12px">
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
                   <div><label class="label">Usuario</label><input class="input" id="uf-username" placeholder="nombre_usuario" autocomplete="off" /></div>
-                  <div><label class="label">Rol</label><select class="input" id="uf-role"><option value="operador">Operador</option><option value="admin">Administrador</option></select></div>
+                  <div><label class="label">Rol</label><select class="input" id="uf-role"><option value="user">Operador</option><option value="admin">Administrador</option></select></div>
                 </div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
                   <div><label class="label" id="uf-pass-label">Contraseña</label><input class="input" id="uf-password" type="password" placeholder="••••••••" autocomplete="new-password" /></div>
@@ -447,6 +448,86 @@
             </div>
           </div>
         </div>
+        <div class="stab-panel" id="stab-roles" style="display:none;max-width:700px">
+  <div class="card">
+    <div class="card-header">
+      <h3>Roles personalizados</h3>
+      <button class="btn sm primary" onclick="openRoleForm()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        Nuevo rol
+      </button>
+    </div>
+
+    <!-- Formulario inline -->
+    <div id="role-form-inline" style="display:none;border-bottom:1px solid var(--border)">
+      <div style="padding:16px;display:grid;gap:12px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div>
+            <label class="label">ID del rol <span style="color:var(--red)">*</span></label>
+            <input class="input mono" id="rf-id" placeholder="supervisor" />
+          </div>
+          <div>
+            <label class="label">Nombre visible <span style="color:var(--red)">*</span></label>
+            <input class="input" id="rf-label" placeholder="Supervisor" />
+          </div>
+        </div>
+        <div>
+          <label class="label">Módulos permitidos</label>
+          <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:6px">
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+              <input type="checkbox" value="dashboard" checked disabled /> Dashboard
+              <span style="font-size:10px;color:var(--text3)">(siempre)</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+              <input type="checkbox" class="rf-module" value="validador" /> Validador
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+              <input type="checkbox" class="rf-module" value="admin" /> Admin Patentes/IMEI
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+              <input type="checkbox" class="rf-module" value="settings" /> Configuración
+            </label>
+          </div>
+        </div>
+        <div id="rf-error" style="display:none;font-size:12px;color:var(--red);
+          background:var(--red-dim);border:1px solid rgba(248,113,113,.25);
+          border-radius:var(--radius-sm);padding:8px 12px"></div>
+        <input type="hidden" id="rf-editing" value="" />
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button class="btn sm" onclick="closeRoleForm()">Cancelar</button>
+          <button class="btn sm primary" id="rf-save-btn" onclick="saveRole()">Guardar rol</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Lista de roles fijos (informativa) -->
+    <div style="padding:12px 16px;border-bottom:1px solid var(--border);
+      background:rgba(0,0,0,.1);display:flex;gap:12px;flex-wrap:wrap">
+      <span style="font-size:11px;color:var(--text3);align-self:center">Roles fijos:</span>
+      <span class="badge red">Administrador — acceso total</span>
+      <span class="badge sky">Operador — Dashboard + Validador</span>
+    </div>
+
+    <!-- Tabla de roles custom -->
+    <div class="card-body" style="padding:0">
+      <div class="table-wrap" style="border:none;border-radius:0">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Nombre</th>
+              <th>Módulos</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="roles-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div><!-- /card -->
+</div><!-- /stab-roles -->
         <div class="stab-panel" id="stab-orgs" style="display:none">
           <div style="display:grid;grid-template-columns:250px 1fr;gap:18px;align-items:start">
             <div style="position:sticky;top:20px;display:grid;gap:10px">
@@ -543,10 +624,6 @@
 
       </div>
       <div class="modal-footer">
-        <button class="btn" onclick="modalBackToDest()">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
-          Cambiar destino
-        </button>
         <button class="btn" onclick="closeModal()">Cancelar</button>
         <button class="btn primary" id="modal-save-btn" onclick="saveEntry()">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
@@ -570,6 +647,7 @@
   <script src="js/store.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/nav.js"></script>
+  <script src="js/roles.js"></script>
   <script src="js/users.js"></script>
   <script src="js/orgs.js"></script>
   <script src="js/app.js"></script>
