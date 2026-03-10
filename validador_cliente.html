@@ -1,0 +1,1065 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Validador | Unidad + Destinos</title>
+
+<!-- Leaflet (mapa) -->
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+  crossorigin=""
+/>
+<script
+  src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+  crossorigin=""
+></script>
+
+<style>
+:root{
+  --bg:#0b1220;
+  --stroke:rgba(148,163,184,.18);
+  --text:#e5e7eb;
+  --muted:#94a3b8;
+  --accent:#38bdf8;
+
+  --red:#ef4444;
+  --orange:#fb923c;
+  --yellow:#f59e0b;
+  --green:#22c55e;
+
+  --shadow: 0 18px 50px rgba(0,0,0,.35);
+  --radius:18px;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  background: radial-gradient(1000px 500px at 20% 0%, rgba(56,189,248,.18), transparent 55%),
+              radial-gradient(900px 550px at 90% 10%, rgba(34,197,94,.14), transparent 60%),
+              radial-gradient(700px 500px at 50% 100%, rgba(245,158,11,.10), transparent 60%),
+              var(--bg);
+  color:var(--text);
+  min-height:100vh;
+  padding:18px;
+}
+
+.wrap{max-width:1150px;margin:0 auto;display:grid;gap:16px;}
+
+.header{
+  display:flex;align-items:flex-start;justify-content:space-between;gap:14px;
+  padding:16px;border:1px solid var(--stroke);
+  background: linear-gradient(180deg, rgba(15,27,46,.92), rgba(11,18,32,.85));
+  border-radius: var(--radius); box-shadow: var(--shadow);
+}
+h1{font-size:18px;margin:0;letter-spacing:.2px}
+.subtitle{margin:6px 0 0;font-size:13px;color:var(--muted);line-height:1.35}
+
+.controls{
+  display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:flex-end;
+  min-width: min(520px, 100%);
+}
+.input{
+  flex: 1 1 260px;
+  display:flex;align-items:center;gap:10px;
+  padding:10px 12px;border-radius:14px;border:1px solid var(--stroke);
+  background: rgba(2,6,23,.35);
+  min-width: 240px;
+}
+.input label{font-size:12px;color:var(--muted);white-space:nowrap}
+.input input{
+  width:100%;border:0;outline:0;background:transparent;color:var(--text);
+  font-size:14px;letter-spacing:.6px;text-transform:uppercase;
+}
+.btn{
+  border:1px solid rgba(56,189,248,.35);
+  background: rgba(56,189,248,.12);
+  color: var(--text);
+  padding:10px 14px;border-radius:14px;cursor:pointer;
+  font-weight:650;letter-spacing:.2px;transition:.15s ease;
+  flex: 0 0 auto;
+}
+.btn:hover{transform: translateY(-1px); background: rgba(56,189,248,.18);}
+.btn:active{transform: translateY(0px); opacity:.9;}
+.btn:disabled{opacity:.6;cursor:not-allowed;transform:none}
+.spinner{
+  display:none;width:18px;height:18px;border-radius:50%;
+  border:2px solid rgba(148,163,184,.25);
+  border-top-color: rgba(56,189,248,.9);
+  animation: spin 0.9s linear infinite;
+  flex: 0 0 auto;
+  margin-right: 2px;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.grid{display:grid;grid-template-columns: 1.15fr .85fr; gap:16px;}
+@media (max-width: 980px){
+  .grid{grid-template-columns:1fr;}
+  body{padding:14px;}
+}
+
+.card{
+  border:1px solid var(--stroke);
+  background: linear-gradient(180deg, rgba(15,27,46,.88), rgba(11,22,40,.80));
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow:hidden;
+}
+.cardHead{
+  padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;
+  border-bottom:1px solid rgba(148,163,184,.12);
+}
+.label{font-size:12px;color:var(--muted);}
+.value{font-size:16px;font-weight:750;letter-spacing:.5px;}
+.badge{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:8px 10px;border-radius:999px;
+  border:1px solid rgba(148,163,184,.18);
+  background: rgba(2,6,23,.35);
+  font-size:12px;color:var(--muted);white-space:nowrap;
+}
+
+.dot{width:10px;height:10px;border-radius:999px;box-shadow:0 0 0 4px rgba(255,255,255,.04);}
+.dot.g{background:var(--green); box-shadow:0 0 0 4px rgba(34,197,94,.14);}
+.dot.y{background:var(--yellow);box-shadow:0 0 0 4px rgba(245,158,11,.16);}
+.dot.o{background:var(--orange);box-shadow:0 0 0 4px rgba(251,146,60,.16);}
+.dot.r{background:var(--red); box-shadow:0 0 0 4px rgba(239,68,68,.16);}
+
+.content{padding:16px;display:grid;gap:14px;}
+
+.errBox{
+  display:none;padding:12px 14px;border-radius:14px;
+  border:1px solid rgba(245,158,11,.25);
+  background: rgba(245,158,11,.10);
+  color:#fffbeb;line-height:1.35;font-weight:650;
+}
+
+.alert{
+  display:none;
+  padding:12px 14px;border-radius:14px;
+  border:1px solid rgba(239,68,68,.30);
+  background: rgba(239,68,68,.12);
+  color:#fee2e2;
+  font-weight:750;
+  line-height:1.3;
+}
+
+.kv{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:12px;
+}
+@media (max-width: 560px){
+  .kv{grid-template-columns:1fr;}
+}
+
+.kbox{
+  padding:12px 12px;border-radius:14px;
+  border:1px solid rgba(148,163,184,.12);
+  background: rgba(2,6,23,.25);
+}
+.k{font-size:11px;color:var(--muted);margin-bottom:6px;}
+.v{
+  font-size:14px;font-weight:800;
+  max-width:100%;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.small{font-size:12px;color:var(--muted);}
+.link{color:var(--accent);text-decoration:none;font-weight:650;}
+
+#skynavMsg{
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+.destList{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin-top: 6px;
+}
+
+.chip{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:9px 10px;
+  border-radius:999px;
+  border:1px solid rgba(148,163,184,.18);
+  background: rgba(2,6,23,.30);
+  color: var(--text);
+  font-size:12px;
+  font-weight:800;
+  letter-spacing:.2px;
+  max-width: 100%;
+}
+
+.chip .name{
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  max-width: 260px;
+}
+@media (max-width: 420px){
+  .chip .name{max-width: 180px;}
+}
+
+.chip.g{ border-color: rgba(34,197,94,.30); }
+.chip.y{ border-color: rgba(245,158,11,.35); }
+.chip.o{ border-color: rgba(251,146,60,.35); }
+.chip.r{ border-color: rgba(239,68,68,.38); }
+
+#map-wrap { position: relative; border-radius: 16px; overflow: hidden; }
+#map {
+  height: 460px; width: 100%;
+  border-radius: 16px;
+  border: 1px solid rgba(148,163,184,.14);
+  overflow: hidden;
+  background: #0b1220;
+}
+#map-skeleton {
+  position: absolute; inset: 0; z-index: 1000;
+  border-radius: 16px;
+  background: linear-gradient(110deg, #0b1220 30%, #102035 50%, #0b1220 70%);
+  background-size: 200% 100%;
+  animation: skshimmer 2s infinite linear;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 12px;
+  color: rgba(148,163,184,.5); font-size: 13px;
+  pointer-events: none;
+}
+#map-skeleton svg { opacity: .3; }
+@keyframes skshimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+@media (max-width: 980px){ #map { height: 380px; } }
+@media (max-width: 420px){ #map { height: 300px; } }
+.mapFooter {
+  display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+  margin-top: 10px; color: var(--muted); font-size: 12px;
+}
+.leaflet-popup-content-wrapper {
+  background: #0f1e35 !important;
+  border: 1px solid rgba(56,189,248,.25) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,.6) !important;
+  color: #e5e7eb !important;
+}
+.leaflet-popup-tip { background: #0f1e35 !important; }
+.leaflet-popup-content { font-size: 12px !important; line-height: 1.75 !important; margin: 10px 14px !important; }
+.mp-plate { font-size: 14px; font-weight: 800; color: #38bdf8; font-family: monospace; letter-spacing: 1.5px; margin-bottom: 5px; }
+.mp-row { color: #94a3b8; }
+.mp-row b { color: #e5e7eb; }
+.mp-ts { color: #475569; font-size: 11px; margin-top: 4px; }
+
+/* ── Certificado ── */
+.cert-btn {
+  display: none;
+  margin-top: 14px;
+  width: 100%;
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(34,197,94,.3);
+  background: rgba(34,197,94,.08);
+  color: #86efac;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  transition: all .15s;
+}
+.cert-btn:hover { background: rgba(34,197,94,.15); border-color: rgba(34,197,94,.5); }
+.cert-btn:disabled { opacity: .5; cursor: not-allowed; }
+.cert-btn.invalidado {
+  border-color: rgba(239,68,68,.3);
+  background: rgba(239,68,68,.08);
+  color: #fca5a5;
+}
+.cert-status-box {
+  display: none;
+  margin-top: 10px;
+  padding: 10px 13px;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.cert-status-box.vigente   { background: rgba(34,197,94,.08);  border: 1px solid rgba(34,197,94,.2);  color: #86efac; }
+.cert-status-box.vencido   { background: rgba(245,158,11,.08); border: 1px solid rgba(245,158,11,.2); color: #fcd34d; }
+.cert-status-box.invalidado { background: rgba(239,68,68,.08); border: 1px solid rgba(239,68,68,.2);  color: #fca5a5; }
+.cert-status-box.no-cert   { background: rgba(148,163,184,.05); border: 1px solid rgba(148,163,184,.1); color: #64748b; }
+</style>
+</head>
+
+<body>
+<div class="wrap">
+  <div class="header">
+    <div>
+      <h1>Validador de Unidad + Destinos</h1>
+      <p class="subtitle">
+        Tarjeta unificada con último registro + chips por destino (semáforo) + validación de transmisión TCP real.
+      </p>
+    </div>
+
+    <div class="controls">
+      <div class="input">
+        <label for="plate">Patente</label>
+        <input id="plate" placeholder="Ej: SN0213" autocomplete="off" />
+      </div>
+      <button class="btn" id="btn">Consultar</button>
+      <div class="spinner" id="spin"></div>
+    </div>
+  </div>
+
+  <!-- ── Sección Certificado GPS ── -->
+  <div id="cert-section" style="display:none;margin-top:12px;padding:14px 16px;border-radius:12px;background:rgba(2,6,23,.4);border:1px solid rgba(148,163,184,.1)">
+    <div style="font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Certificado GPS</div>
+    <div id="cert-status-box" class="cert-status-box"></div>
+    <button id="btn-cert-dl" class="cert-btn" onclick="descargarCertificadoCliente()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+      </svg>
+      Descargar Certificado PDF
+    </button>
+  </div>
+
+  <div class="grid">
+    <!-- Unidad -->
+    <div class="card">
+      <div class="cardHead">
+        <div>
+          <div class="label">Unidad</div>
+          <div class="value" id="plateTitle">—</div>
+        </div>
+        <div class="badge">
+          <span class="dot g" id="statusDot"></span>
+          <span id="statusText">Sin consulta</span>
+        </div>
+      </div>
+
+      <div class="content">
+
+        <div class="alert" id="alertGlobalRed">
+          ⚠️ Se recomienda encender el vehículo, en caso de dudas contacte al departamento de integraciones
+        </div>
+
+        <div class="errBox" id="errBox"></div>
+
+        <div class="kv">
+          <div class="kbox">
+            <div class="k">Estado transmisión TCP (real)</div>
+            <div class="v" id="tcpState">—</div>
+            <div class="small" id="tcpDetail"></div>
+          </div>
+
+          <div class="kbox">
+            <div class="k">IMEI (según plates.json)</div>
+            <div class="v" id="imeiEl">—</div>
+            <div class="small" id="targetsEl">—</div>
+          </div>
+
+          <div class="kbox">
+            <div class="k">Último registro (backend / HTTP hacia Skynav)</div>
+            <div class="v" id="lastAt">—</div>
+            <div class="small" id="ageText"></div>
+          </div>
+
+          <div class="kbox">
+            <div class="k">Destino del último envío</div>
+            <div class="v" id="lastTarget">—</div>
+            <div class="small" id="fechaHora">—</div>
+          </div>
+
+          <div class="kbox">
+            <div class="k">Skynav HTTP (último registro)</div>
+            <div class="v" id="httpStatus">—</div>
+            <div class="small" id="skynavMsg"></div>
+          </div>
+
+          <div class="kbox">
+            <div class="k">Velocidad / Ignición / Heading</div>
+            <div class="v" id="speed">—</div>
+            <div class="small" id="headingIgn">—</div>
+          </div>
+
+          <div class="kbox">
+            <div class="k">Coordenadas</div>
+            <div class="v" id="coords">—</div>
+            <div class="small">
+              <a class="link" id="gmap" href="#" target="_blank" rel="noopener">Abrir en Google Maps</a>
+            </div>
+          </div>
+
+          <div class="kbox">
+            <div class="k">Destinos suscritos (con semáforo por destino)</div>
+            <div class="destList" id="destList"></div>
+            <div class="small" id="destHint"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mapa -->
+    <div class="card">
+      <div class="cardHead">
+        <div>
+          <div class="label">Ubicación</div>
+          <div class="value">Mapa</div>
+        </div>
+        <div class="badge">
+          <span style="color:var(--muted)">Leaflet + OSM</span>
+        </div>
+      </div>
+      <div class="content">
+          <div id="map-wrap">
+            <div id="map-skeleton">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10A15.3 15.3 0 0 1 12 2z"/><line x1="2" y1="12" x2="22" y2="12"/></svg>
+              <span>Ingresa una patente para ver la ubicación</span>
+            </div>
+            <div id="map"></div>
+          </div>
+        <div class="mapFooter">
+          <span id="mapHint">Ingresa una patente para cargar ubicación.</span>
+          <span id="mapTime"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ================= CONFIG =================
+// Usar mismo origen (Fly) para evitar CORS y depender del dominio.
+// API_BASE: si viene ?api= en la URL lo usa; si no, rutas relativas (Fly.io)
+const _qs0 = new URLSearchParams(location.search);
+const API_BASE = _qs0.get("api") || "";
+const _TOKEN  = _qs0.get("token") || "";
+
+// ventana para considerar "transmitiendo"
+const TX_ACTIVE_MINUTES = 20;
+
+const plateInput = document.getElementById("plate");
+let _currentCert = null;
+const btn = document.getElementById("btn");
+const spin = document.getElementById("spin");
+
+const plateTitle = document.getElementById("plateTitle");
+const statusDot = document.getElementById("statusDot");
+const statusText = document.getElementById("statusText");
+
+const alertGlobalRed = document.getElementById("alertGlobalRed");
+const errBox = document.getElementById("errBox");
+
+const tcpState = document.getElementById("tcpState");
+const tcpDetail = document.getElementById("tcpDetail");
+const imeiEl = document.getElementById("imeiEl");
+const targetsEl = document.getElementById("targetsEl");
+
+const lastAt = document.getElementById("lastAt");
+const ageText = document.getElementById("ageText");
+const lastTarget = document.getElementById("lastTarget");
+const fechaHoraEl = document.getElementById("fechaHora");
+
+const httpStatus = document.getElementById("httpStatus");
+const skynavMsg = document.getElementById("skynavMsg");
+
+const speedEl = document.getElementById("speed");
+const headingIgn = document.getElementById("headingIgn");
+
+const coordsEl = document.getElementById("coords");
+const gmap = document.getElementById("gmap");
+
+const destList = document.getElementById("destList");
+const destHint = document.getElementById("destHint");
+
+const mapHint = document.getElementById("mapHint");
+const mapTime = document.getElementById("mapTime");
+
+// ================= MAP =================
+const map = L.map("map", {
+  zoomControl: true, fadeAnimation: true, zoomAnimation: true,
+}).setView([-35.5, -71.5], 5);  // Chile, sin tiles hasta tener datos
+
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  maxZoom: 19,
+  attribution: '&copy; <a href="https://openstreetmap.org">OSM</a>'
+}).addTo(map);
+
+// Ícono pin personalizado
+const pinIcon = L.divIcon({
+  html: `<div style="position:relative;width:24px;height:32px">
+    <div style="width:24px;height:24px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);
+      background:linear-gradient(135deg,#38bdf8,#0ea5e9);border:2px solid rgba(255,255,255,.9);
+      box-shadow:0 2px 10px rgba(56,189,248,.8)"></div>
+  </div>`,
+  className: '', iconSize: [24,32], iconAnchor: [12,32], popupAnchor: [0,-34],
+});
+
+let marker = L.marker([-35.5, -71.5], { icon: pinIcon }).addTo(map);
+let _mapHasData = false;
+
+// Forzar recalculo de tamaño cuando sea necesario
+function _fixMapSize() { setTimeout(() => map.invalidateSize({ animate: false }), 80); }
+window.addEventListener("resize", _fixMapSize);
+
+// ================= UI HELPERS =================
+function showError(msg) {
+  errBox.style.display = "block";
+  errBox.innerHTML = msg;
+}
+function clearError() {
+  errBox.style.display = "none";
+  errBox.textContent = "";
+}
+
+// Semáforo por horas:
+// Verde <6, Amarillo 6-12, Naranjo 12-24, Rojo >24
+function statusClassFromHours(hours) {
+  if (hours === null) return "r";
+  if (hours < 6) return "g";
+  if (hours < 12) return "y";
+  if (hours < 24) return "o";
+  return "r";
+}
+function statusTextFromHours(hours) {
+  if (hours === null) return "Sin registros";
+  if (hours < 6) return "Verde · < 6h";
+  if (hours < 12) return "Amarillo · 6–12h";
+  if (hours < 24) return "Naranjo · 12–24h";
+  return "Rojo · > 24h";
+}
+
+function setTopBadgeByHours(hours) {
+  statusDot.classList.remove("g","y","o","r");
+  const cls = statusClassFromHours(hours);
+  statusDot.classList.add(cls);
+  statusText.textContent = statusTextFromHours(hours);
+}
+
+// Forzar estado rojo por TCP
+function setTopBadgeTcpOff() {
+  statusDot.classList.remove("g","y","o","r");
+  statusDot.classList.add("r");
+  statusText.textContent = "Rojo · SIN TX (TCP)";
+}
+
+function fmt5(n){
+  const x = Math.round(n * 100000) / 100000;
+  return x.toFixed(5);
+}
+
+function diffHours(iso) {
+  if (!iso) return null;
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return null;
+  return (Date.now() - t) / 3600000;
+}
+
+function prettyAge(h) {
+  if (h === null) return "—";
+  const totalMin = Math.max(0, Math.round(h * 60));
+  const hh = Math.floor(totalMin / 60);
+  const mm = totalMin % 60;
+  if (hh === 0) return `hace ${mm} min`;
+  return `hace ${hh}h ${mm}m`;
+}
+
+function prettyAgeMinutes(m) {
+  if (m === null || m === undefined) return "—";
+  const total = Math.max(0, Math.round(m));
+  const hh = Math.floor(total / 60);
+  const mm = total % 60;
+  if (hh === 0) return `hace ${mm} min`;
+  return `hace ${hh}h ${mm}m`;
+}
+
+function pickSkynavMessage(resp) {
+  if (!resp) return "";
+  if (typeof resp === "string") return resp;
+  if (resp.mensaje) return String(resp.mensaje);
+  if (resp.message) return String(resp.message);
+  if (resp.raw) return String(resp.raw);
+  return "";
+}
+
+function escapeHtml(s){
+  return String(s)
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;");
+}
+
+function shortText(s, max = 80) {
+  const t = String(s ?? "").trim();
+  if (!t) return "—";
+  return t.length > max ? (t.slice(0, max) + "…") : t;
+}
+
+function formatDateCL(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (!Number.isFinite(d.getTime())) return String(iso);
+  const pad = (n) => String(n).padStart(2,"0");
+  return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+function resetUI(plate){
+  plateTitle.textContent = plate || "—";
+
+  tcpState.textContent = "—";
+  tcpDetail.textContent = "";
+  imeiEl.textContent = "—";
+  targetsEl.textContent = "—";
+
+  lastAt.textContent = "—";
+  ageText.textContent = "";
+  lastTarget.textContent = "—";
+  fechaHoraEl.textContent = "—";
+  httpStatus.textContent = "—";
+  skynavMsg.textContent = "";
+  speedEl.textContent = "—";
+  headingIgn.textContent = "—";
+  coordsEl.textContent = "—";
+  gmap.href = "#";
+  destList.innerHTML = "";
+  destHint.textContent = "";
+
+  clearError();
+  alertGlobalRed.style.display = "none";
+
+  marker.setLatLng([-33.45, -70.66]);
+  marker.setPopupContent("Sin datos aún.");
+  map.setView([-33.45, -70.66], 10);
+  mapHint.textContent = "Ingresa una patente para cargar ubicación.";
+  mapTime.textContent = "";
+
+  setTopBadgeByHours(null);
+}
+
+async function fetchJsonSafe(url){
+  const headers = { "Accept": "application/json" };
+  if (_TOKEN) headers["Authorization"] = `Bearer ${_TOKEN}`;
+  const r = await fetch(url, { headers });
+  const text = await r.text();
+  let j = null;
+  try { j = JSON.parse(text); }
+  catch {
+    const preview = text.replaceAll("<","&lt;").slice(0, 220);
+    throw new Error(`Respuesta no-JSON (HTTP ${r.status}).<br/><span class="small">Body: <code>${preview}</code></span>`);
+  }
+  if (!r.ok) {
+    const msg = j?.error ? String(j.error) : `HTTP ${r.status}`;
+    throw new Error(`Error HTTP ${r.status}: ${escapeHtml(msg)}`);
+  }
+  return j;
+}
+
+function pickMostRecentRecord(records) {
+  const sorted = records
+    .filter(r => r && r.at)
+    .sort((a,b) => Date.parse(b.at) - Date.parse(a.at));
+  return sorted[0] || null;
+}
+
+function pickMostRecentLocation(records) {
+  const valid = records
+    .filter(r => r && r.tx && Number.isFinite(Number(r.tx.latitud ?? r.tx.lat)) && Number.isFinite(Number(r.tx.longitud ?? r.tx.lon)) && r.at)
+    .sort((a,b) => Date.parse(b.at) - Date.parse(a.at));
+  return valid[0] || null;
+}
+
+function renderDestinationsWithSemaforo(records) {
+  // records: array de {target, at, ...}
+  const perTarget = new Map();
+
+  // quedarnos con el más reciente por target
+  for (const r of records) {
+    if (!r || !r.target || !r.at) continue;
+    const prev = perTarget.get(r.target);
+    if (!prev || Date.parse(r.at) > Date.parse(prev.at)) perTarget.set(r.target, r);
+  }
+
+  const items = [...perTarget.values()]
+    .sort((a,b) => String(a.target).localeCompare(String(b.target)));
+
+  destList.innerHTML = "";
+
+  if (items.length === 0) {
+    destHint.textContent = "No hay destinos registrados para esta patente.";
+    return { anyRed: false, worst: null, count: 0 };
+  }
+
+  let anyRed = false;
+  let worst = null;
+  let worstHours = -1;
+
+  items.forEach(r => {
+    const h = diffHours(r.at);
+    const cls = statusClassFromHours(h);
+    const txt = statusTextFromHours(h);
+
+    if (cls === "r") anyRed = true;
+    if (h !== null && h > worstHours) { worstHours = h; worst = r; }
+
+    const chip = document.createElement("div");
+    chip.className = `chip ${cls}`;
+    chip.innerHTML = `
+      <span class="dot ${cls}" style="width:8px;height:8px;box-shadow:none;"></span>
+      <span class="name">${escapeHtml(r.target)}</span>
+      <span class="small" style="margin-left:4px; opacity:.9;">${escapeHtml(txt)}</span>
+    `;
+    destList.appendChild(chip);
+  });
+
+  destHint.textContent = `Total destinos: ${items.length}`;
+  return { anyRed, worst, count: items.length };
+}
+
+function setTcpBox(statusObj){
+  if (!statusObj) {
+    tcpState.textContent = "—";
+    tcpDetail.textContent = "";
+    return;
+  }
+
+  const isTx = !!statusObj.isTransmitting;
+  const ageMin = (statusObj.tcpAgeMinutes ?? null);
+
+  tcpState.textContent = isTx ? "Transmitiendo" : "No transmitiendo";
+  tcpDetail.textContent =
+    `Último TCP: ${statusObj.tcpLastAt ? formatDateCL(statusObj.tcpLastAt) : "—"} · ${prettyAgeMinutes(ageMin)} · Ventana: ${statusObj.activeWindowMinutes ?? TX_ACTIVE_MINUTES} min`;
+
+  imeiEl.textContent = statusObj.imei || "—";
+  const t = Array.isArray(statusObj.targets) ? statusObj.targets : [];
+  targetsEl.textContent = t.length ? `Destinos: ${t.join(", ")}` : "Destinos: —";
+}
+
+// ================= MAIN =================
+async function consultar() {
+  const plate = String(plateInput.value || "").trim().toUpperCase();
+  if (!plate) return;
+
+  spin.style.display = "inline-block";
+  btn.disabled = true;
+
+  resetUI(plate);
+  plateTitle.textContent = plate;
+  mapHint.textContent = "Consultando…";
+
+  try {
+    // 1) Estado TCP REAL
+    const stUrl = `${API_BASE}/gps/unit-status?plate=${encodeURIComponent(plate)}${_TOKEN ? "&token="+encodeURIComponent(_TOKEN) : ""}`;
+    const st = await fetchJsonSafe(stUrl);
+    setTcpBox(st);
+
+    // Si NO está transmitiendo, forzamos rojo + alerta global
+    if (!st.isTransmitting) {
+      setTopBadgeTcpOff();
+      alertGlobalRed.style.display = "block";
+      destHint.textContent = `⚠️ Sin transmisión TCP reciente. ${destHint.textContent || ""}`.trim();
+    }
+
+    // 2) Últimos envíos HTTP por destino (para semáforo y detalles)
+    const url = `${API_BASE}/gps/last-responses?plate=${encodeURIComponent(plate)}${_TOKEN ? "&token="+encodeURIComponent(_TOKEN) : ""}`;
+    const j = await fetchJsonSafe(url);
+    const results = Array.isArray(j.results) ? j.results : [];
+
+    // Chips por destino con semáforo
+    const { anyRed } = renderDestinationsWithSemaforo(results);
+
+    // Si sí transmite, la alerta depende de si hay destinos rojos
+    if (st.isTransmitting) {
+      alertGlobalRed.style.display = anyRed ? "block" : "none";
+    }
+
+    // Tarjeta unificada: usar el registro más reciente (cualquier destino)
+    const last = pickMostRecentRecord(results);
+
+    if (!last) {
+      if (st.isTransmitting) {
+        const h = (st.tcpAgeMinutes ?? 9999) / 60;
+        setTopBadgeByHours(h);
+        statusText.textContent = `TX OK · TCP ${Math.round(st.tcpAgeMinutes)} min`;
+        mapHint.textContent = "Transmitiendo por TCP, pero sin envíos HTTP registrados aún.";
+      } else {
+        mapHint.textContent = "Sin registros HTTP y sin transmisión TCP reciente.";
+      }
+      return;
+    }
+
+    // Si hay last-responses, el badge “normal” lo basamos en last.at
+    // PERO si no transmite por TCP, NO lo sobreescribimos (mantener rojo TCP).
+    if (st.isTransmitting) {
+      const hours = diffHours(last.at);
+      setTopBadgeByHours(hours);
+    }
+
+    lastAt.textContent = formatDateCL(last.at);
+    const hours = diffHours(last.at);
+    ageText.textContent = hours === null ? "" : prettyAge(hours);
+
+    lastTarget.textContent = last.target || "—";
+    const tx = last.tx || {};
+    fechaHoraEl.textContent = formatDateCL(tx.fechaHora ?? tx.fechaHoraISO);
+
+    httpStatus.textContent = last.ok ? "OK" : "ERROR";
+    skynavMsg.textContent = shortText(pickSkynavMessage(last.response), 90);
+
+    const spd = (tx.velocidad ?? tx.speed ?? null);
+    speedEl.textContent = spd == null ? "—" : `${Number(spd).toFixed(0)} km/h`;
+
+    const head = (tx.heading ?? null);
+    const ign = (tx.ignicion ?? tx.ignition ?? null);
+    headingIgn.textContent = `${ign ? "ON" : "OFF"} · ${head == null ? "—" : Number(head).toFixed(0)}°`;
+
+    // mapa: usa la ubicación más reciente disponible
+    const bestLoc = pickMostRecentLocation(results);
+    if (bestLoc) {
+      const lat = Number(bestLoc.tx.latitud ?? bestLoc.tx.lat);
+      const lon = Number(bestLoc.tx.longitud ?? bestLoc.tx.lon);
+      coordsEl.textContent = `${fmt5(lat)}, ${fmt5(lon)}`;
+      gmap.href = `https://www.google.com/maps?q=${lat},${lon}`;
+
+      const _spd  = bestLoc.tx?.velocidad ?? bestLoc.tx?.speed;
+      const _ign  = bestLoc.tx?.ignicion ?? bestLoc.tx?.ignition;
+      const _head = bestLoc.tx?.heading;
+      marker.setLatLng([lat, lon]);
+      marker.setPopupContent(
+        `<div class="mp-plate">${escapeHtml(plate)}</div>` +
+        `<div class="mp-row">📡 <b>Destino:</b> ${escapeHtml(bestLoc.target)}</div>` +
+        `<div class="mp-row">📍 <b>Coords:</b> ${fmt5(lat)}, ${fmt5(lon)}</div>` +
+        (_spd  != null ? `<div class="mp-row">🚀 <b>Velocidad:</b> ${Number(_spd).toFixed(0)} km/h</div>` : "") +
+        (_ign  != null ? `<div class="mp-row">🔑 <b>Ignición:</b> ${_ign ? '<span style="color:#22c55e">ON</span>' : '<span style="color:#ef4444">OFF</span>'}</div>` : "") +
+        (bestLoc.tx?.fechaHora ?? bestLoc.tx?.fechaHoraISO ? `<div class="mp-ts">${formatDateCL(bestLoc.tx.fechaHora ?? bestLoc.tx.fechaHoraISO)}</div>` : "")
+      );
+      // Navegar al punto con animación
+      if (_mapHasData) {
+        map.flyTo([lat, lon], 15, { duration: 1.4, easeLinearity: 0.2 });
+      } else {
+        map.setView([lat, lon], 15);
+        _mapHasData = true;
+      }
+      // Ocultar skeleton e invalidar tamaño
+      const skel = document.getElementById("map-skeleton");
+      if (skel) skel.style.display = "none";
+      setTimeout(() => { map.invalidateSize({ animate: false }); marker.openPopup(); }, 150);
+      mapHint.textContent = `Ubicación reciente · ${escapeHtml(bestLoc.target)}`;
+      mapTime.textContent = bestLoc.tx?.fechaHora ?? bestLoc.tx?.fechaHoraISO ? formatDateCL(bestLoc.tx.fechaHora ?? bestLoc.tx.fechaHoraISO) : "";
+    } else {
+      coordsEl.textContent = "—";
+      gmap.href = "#";
+      mapHint.textContent = "Sin coordenadas GPS disponibles para esta patente.";
+      const skel = document.getElementById("map-skeleton");
+      if (skel) {
+        skel.style.animation = "none";
+        skel.style.background = "#0d1b2e";
+        skel.innerHTML = '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity:.3"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg><span>Sin coordenadas GPS</span>';
+        skel.style.display = "flex";
+      }
+    }
+  } catch (e) {
+    setTopBadgeByHours(null);
+    statusText.textContent = "Error consultando";
+    alertGlobalRed.style.display = "block";
+    mapHint.textContent = "Error consultando la API.";
+    showError(String(e.message || e));
+    console.error(e);
+  } finally {
+    spin.style.display = "none";
+    btn.disabled = false;
+    // Cargar certificado siempre, aunque haya error GPS
+    const _plate = String(plateInput.value || "").trim().toUpperCase();
+    if (_plate) cargarCertificadoCliente(_plate);
+  }
+}
+
+
+/* ════════════════════════════════
+   CERTIFICADO GPS — portal cliente
+════════════════════════════════ */
+
+async function cargarCertificadoCliente(plate) {
+  const section  = document.getElementById('cert-section');
+  const statusBox = document.getElementById('cert-status-box');
+  const btnDl    = document.getElementById('btn-cert-dl');
+
+  section.style.display = '';
+  statusBox.className   = 'cert-status-box';
+  statusBox.style.display = 'none';
+  btnDl.style.display   = 'none';
+  _currentCert = null;
+
+  try {
+    // Buscar certificado más reciente vigente para esta patente
+    const API = 'https://app-validaciones-production.up.railway.app';
+    const res = await fetch(`${API}/certificados/patente/${encodeURIComponent(plate)}`);
+    if (!res.ok) {
+      // No hay certificado registrado
+      statusBox.className = 'cert-status-box no-cert';
+      statusBox.textContent = 'No hay certificado registrado para esta unidad.';
+      statusBox.style.display = '';
+      return;
+    }
+    const cert = await res.json();
+    _currentCert = cert;
+
+    const hoy  = new Date();
+    const venc = new Date(cert.fecha_vencimiento);
+    let estado = cert.estado;
+    if (estado === 'vigente' && venc < hoy) estado = 'vencido';
+
+    const fmt = d => d ? new Date(d).toLocaleDateString('es-CL') : '–';
+
+    statusBox.style.display = '';
+    if (estado === 'vigente') {
+      statusBox.className = 'cert-status-box vigente';
+      statusBox.innerHTML = `<strong>✅ Certificado vigente</strong><br>Válido hasta: ${fmt(cert.fecha_vencimiento)} · Firmado por: ${cert.firmante || '–'}`;
+      btnDl.className = 'cert-btn';
+      btnDl.style.display = 'flex';
+      btnDl.textContent = '';
+      btnDl.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Descargar Certificado PDF`;
+    } else if (estado === 'vencido') {
+      statusBox.className = 'cert-status-box vencido';
+      statusBox.innerHTML = `<strong>⏰ Certificado vencido</strong><br>Venció el ${fmt(cert.fecha_vencimiento)}. Solicita renovación.`;
+    } else if (estado === 'invalidado') {
+      statusBox.className = 'cert-status-box invalidado';
+      statusBox.innerHTML = `<strong>🚫 Certificado invalidado</strong><br>Este certificado fue anulado y no tiene validez.`;
+    }
+  } catch (e) {
+    console.warn('cert:', e);
+    section.style.display = 'none';
+  }
+}
+
+async function descargarCertificadoCliente() {
+  if (!_currentCert) return;
+  const btn = document.getElementById('btn-cert-dl');
+  btn.disabled = true;
+  btn.innerHTML = 'Generando PDF…';
+
+  try {
+    await _loadJsPDF();
+    const cert = _currentCert;
+    const fmt = d => d ? new Date(d).toLocaleDateString('es-CL', {day:'2-digit',month:'long',year:'numeric'}) : '–';
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit:'mm', format:'letter', orientation:'portrait' });
+    const W = 215.9, H = 279.4;
+
+    // Header verde
+    doc.setFillColor(22,163,74); doc.rect(0,0,W,38,'F');
+    doc.setFillColor(234,179,8); doc.rect(0,35,W,3,'F');
+    doc.setTextColor(255,255,255);
+    doc.setFont('helvetica','bold'); doc.setFontSize(22);
+    doc.text('Síguelo | gps', 18, 18);
+    doc.setFontSize(10); doc.setFont('helvetica','normal');
+    doc.text('CERTIFICADO DE INSTALACIÓN GPS', 18, 28);
+    doc.text('www.siguelogps.cl  ·  soporte@siguelogps.cl', W-18, 28, {align:'right'});
+
+    doc.setTextColor(30,41,59);
+    let y = 52;
+    doc.setFont('helvetica','bold'); doc.setFontSize(11);
+    doc.text('CERTIFICADO DE INSTALACIÓN DE SISTEMA GPS', W/2, y, {align:'center'});
+    y += 10;
+    doc.setFont('helvetica','normal'); doc.setFontSize(10);
+    const empresa = cert.empresa ? cert.empresa.toUpperCase() : 'EL CLIENTE';
+    const rut = cert.rut_empresa || '–';
+    const texto1 = `Tecnologías de rastreo y seguridad limitada, RUT 76.420.512-K, en adelante "Síguelo GPS",`;
+    const texto2 = `certifica que la empresa ${empresa}, RUT ${rut}, cuenta con un dispositivo`;
+    const texto3 = `de rastreo GPS correctamente instalado y operativo en el vehículo que se detalla a continuación.`;
+    [texto1, texto2, texto3].forEach(t => { doc.text(t, 18, y, {maxWidth: W-36, align:'justify'}); y += 7; });
+    y += 4;
+
+    // Tabla PPU / IMEI
+    doc.setFillColor(30,41,59); doc.rect(18,y,W-36,8,'F');
+    doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(9);
+    doc.text('PATENTE (PPU)', 28, y+5.5);
+    doc.text('IMEI DEL DISPOSITIVO', W/2+10, y+5.5);
+    y += 8;
+    doc.setDrawColor(100,116,139); doc.setLineWidth(0.3);
+    doc.rect(18,y,W-36,10);
+    doc.line(W/2, y, W/2, y+10);
+    doc.setTextColor(30,41,59); doc.setFont('helvetica','bold'); doc.setFontSize(14);
+    doc.text(cert.patente || '–', 28, y+7);
+    doc.setFontSize(11);
+    doc.text(cert.imei || '–', W/2+10, y+7);
+    y += 18;
+
+    doc.setFont('helvetica','normal'); doc.setFontSize(10);
+    const validezTexto = cert.validez_texto || '01 (Un) año';
+    const texto4 = `Se extiende este certificado con una validez de ${validezTexto} desde la fecha de emisión, ${fmt(cert.fecha_emision)}.`;
+    const texto5 = `Fecha de vencimiento: ${fmt(cert.fecha_vencimiento)}.`;
+    [texto4, texto5].forEach(t => { doc.text(t, 18, y, {maxWidth: W-36, align:'justify'}); y += 8; });
+    y += 10;
+
+    // Firmante
+    doc.line(18, y, 90, y); doc.line(W-90, y, W-18, y);
+    y += 6;
+    doc.setFont('helvetica','bold');
+    doc.text(cert.firmante || '–', 54, y, {align:'center'});
+    doc.text('Síguelo GPS', W-54, y, {align:'center'});
+    doc.setFont('helvetica','normal'); doc.setFontSize(9);
+    y += 5;
+    doc.text('RUT: ' + (cert.rut_firmante || '–'), 54, y, {align:'center'});
+    doc.text('Tecnologías de rastreo y seguridad limitada', W-54, y, {align:'center'});
+    y += 4;
+    doc.text('Representante Legal', 54, y, {align:'center'});
+    doc.text('RUT: 76.420.512-K', W-54, y, {align:'center'});
+    y += 14;
+
+    // Código UUID
+    doc.setFillColor(241,245,249); doc.rect(18, y-5, W-36, 12, 'F');
+    doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(100,116,139);
+    doc.text('CÓDIGO DE CERTIFICADO:', 22, y+1);
+    doc.setFont('courier','normal'); doc.setFontSize(8);
+    doc.text(cert.id || '–', 22, y+6);
+
+    // Footer
+    doc.setFillColor(15,23,42); doc.rect(0,H-16,W,16,'F');
+    doc.setTextColor(148,163,184); doc.setFontSize(8); doc.setFont('helvetica','normal');
+    doc.text('Síguelo GPS  ·  www.siguelogps.cl  ·  soporte@siguelogps.cl  ·  +56 9 0000 0000', W/2, H-8, {align:'center'});
+
+    const filename = `Certificado_GPS_${cert.patente}_${new Date().toISOString().slice(0,10)}.pdf`;
+    doc.save(filename);
+  } catch(e) {
+    console.error('cert pdf error:', e);
+    alert('Error al generar PDF: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Descargar Certificado PDF`;
+  }
+}
+
+function _loadJsPDF() {
+  if (window.jspdf) return Promise.resolve();
+  return new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+    s.onload = res; s.onerror = rej;
+    document.head.appendChild(s);
+  });
+}
+
+btn.addEventListener("click", consultar);
+plateInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") consultar();
+});
+
+// Precarga ?plate=XXXX
+const qs = new URLSearchParams(location.search);
+const qp = qs.get("plate");
+if (qp) {
+  plateInput.value = qp;
+  consultar();
+}
+</script>
+</body>
+</html>

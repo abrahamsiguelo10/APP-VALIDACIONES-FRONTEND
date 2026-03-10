@@ -70,5 +70,24 @@ const api = {
   get:    (path)         => apiFetch(path),
   post:   (path, body)   => apiFetch(path, { method: 'POST',   body: JSON.stringify(body) }),
   patch:  (path, body)   => apiFetch(path, { method: 'PATCH',  body: JSON.stringify(body) }),
-  delete: (path)         => apiFetch(path, { method: 'DELETE' }),
+  delete: (path, body)   => apiFetch(path, { method: 'DELETE', ...(body ? { body: JSON.stringify(body) } : {}) }),
 };
+
+/* ── Método exists (silencioso, sin toast en 404) ─────────────── */
+// Sobreescribir api con version extendida
+Object.assign(api, {
+  exists: async (path) => {
+    const token = getToken();
+    try {
+      const res = await fetch(CONFIG.API_URL + path, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        }
+      });
+      return res.status === 200;
+    } catch (_) {
+      return false;
+    }
+  }
+});

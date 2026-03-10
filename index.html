@@ -16,7 +16,255 @@
   <link rel="stylesheet" href="css/components.css">
   <link rel="stylesheet" href="css/views.css">
   <link rel="stylesheet" href="css/responsive.css">
-  
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+  /* ── Login tipo selector ── */
+  #login-fields-cliente, #login-fields-admin { transition: opacity .2s; }
+
+  /* ── Portal Cliente ── */
+  #cliente-screen {
+    min-height: 100vh;
+    background: var(--bg, #0a0f1e);
+    color: var(--text, #e2e8f0);
+    font-family: 'DM Sans', sans-serif;
+  }
+  .cliente-portal { display: flex; flex-direction: column; min-height: 100vh; }
+  .cp-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 24px;
+    border-bottom: 1px solid rgba(255,255,255,.08);
+    background: rgba(2,6,20,.7);
+    backdrop-filter: blur(12px);
+    position: sticky; top: 0; z-index: 10;
+  }
+  .cp-logo { display: flex; align-items: center; gap: 10px; }
+  .cp-logo-text { font-weight: 700; font-size: 17px; letter-spacing: -.3px; }
+  .cp-user { display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--muted, #64748b); }
+  .cp-logout-btn {
+    background: none; border: 1px solid rgba(255,255,255,.12);
+    color: var(--text, #e2e8f0); padding: 5px 12px; border-radius: 6px;
+    cursor: pointer; font-size: 12px; transition: background .15s;
+  }
+  .cp-logout-btn:hover { background: rgba(255,255,255,.07); }
+  .cp-main { padding: 32px 24px; max-width: 900px; margin: 0 auto; width: 100%; }
+  .cp-title-row { display: flex; align-items: baseline; gap: 12px; margin-bottom: 24px; }
+  .cp-title-row h2 { font-size: 22px; font-weight: 700; margin: 0; }
+  .cp-subtitle { font-size: 13px; color: var(--muted, #64748b); }
+  .cp-empty { text-align: center; padding: 40px; color: var(--muted, #64748b); font-size: 14px; }
+  .cp-error-msg { color: #f87171; }
+  .cp-search-row {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 20px;
+  }
+  .cp-search-wrap {
+    position: relative; flex: 1; max-width: 340px;
+  }
+  .cp-search-wrap svg {
+    position: absolute; left: 11px; top: 50%; transform: translateY(-50%);
+    color: #64748b; pointer-events: none;
+  }
+  .cp-search-input {
+    width: 100%; padding: 9px 12px 9px 34px;
+    background: rgba(255,255,255,.05);
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 8px;
+    color: #e2e8f0; font-size: 13px;
+    outline: none; transition: border-color .15s;
+    box-sizing: border-box;
+  }
+  .cp-search-input::placeholder { color: #64748b; }
+  .cp-search-input:focus { border-color: rgba(99,179,237,.4); }
+  .cp-count { font-size: 12px; color: #64748b; white-space: nowrap; }
+  .cp-card.hidden { display: none; }
+  .cp-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 16px;
+  }
+  .cp-card {
+    background: rgba(255,255,255,.04);
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 12px;
+    padding: 20px;
+    display: flex; flex-direction: column; gap: 12px;
+    transition: border-color .2s, transform .15s;
+    cursor: pointer;
+  }
+  .cp-card:hover { border-color: rgba(99,179,237,.35); transform: translateY(-2px); }
+  .cp-card-plate {
+    font-family: 'DM Mono', monospace;
+    font-size: 22px; font-weight: 700;
+    letter-spacing: 2px;
+    color: #63b3ed;
+  }
+  .cp-card-status { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+  .cp-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .cp-dot.g { background: #22c55e; }
+  .cp-dot.y { background: #f59e0b; }
+  .cp-dot.r { background: #ef4444; }
+  .cp-dot.u { background: #64748b; }
+  .cp-card-meta { font-size: 12px; color: var(--muted, #64748b); }
+  .cp-card-btn {
+    margin-top: 4px;
+    padding: 8px 0;
+    background: rgba(99,179,237,.1);
+    border: 1px solid rgba(99,179,237,.2);
+    border-radius: 7px;
+    color: #63b3ed;
+    font-size: 12px; font-weight: 600;
+    cursor: pointer; text-align: center;
+    transition: background .15s;
+  }
+  .cp-card-btn:hover { background: rgba(99,179,237,.2); }
+
+  /* badge certificado en tarjeta cliente */
+  .cp-cert-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11px; font-weight: 600;
+    padding: 3px 8px; border-radius: 999px; margin-top: 6px;
+  }
+  .cp-cert-badge.vigente   { background: rgba(34,197,94,.12);  color: #86efac;  border: 1px solid rgba(34,197,94,.2); }
+  .cp-cert-badge.vencido   { background: rgba(245,158,11,.10); color: #fcd34d;  border: 1px solid rgba(245,158,11,.2); }
+  .cp-cert-badge.invalidado{ background: rgba(239,68,68,.10);  color: #fca5a5;  border: 1px solid rgba(239,68,68,.2); }
+
+
+  /* ── Validador mejorado ── */
+  .val-tabs {
+    display: flex; gap: 4px;
+    border-bottom: 1px solid rgba(255,255,255,.08);
+    margin: 16px 0 0;
+    padding: 0 4px;
+  }
+  .val-tab {
+    background: none; border: none; color: var(--text2, #94a3b8);
+    padding: 9px 16px; font-size: 13px; cursor: pointer;
+    border-bottom: 2px solid transparent; margin-bottom: -1px;
+    transition: color .15s, border-color .15s;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .val-tab:hover { color: var(--text, #e2e8f0); }
+  .val-tab.active { color: #63b3ed; border-bottom-color: #63b3ed; }
+  .val-tab-count {
+    background: rgba(99,179,237,.15); color: #63b3ed;
+    font-size: 10px; padding: 1px 6px; border-radius: 10px;
+    font-weight: 600;
+  }
+  .val-tab-panel { margin-top: 16px; }
+  .val-table {
+    width: 100%; border-collapse: collapse; font-size: 13px;
+  }
+  .val-table th {
+    text-align: left; padding: 10px 16px;
+    color: var(--text2, #94a3b8); font-size: 11px; font-weight: 600;
+    letter-spacing: .5px; text-transform: uppercase;
+    border-bottom: 1px solid rgba(255,255,255,.07);
+    background: rgba(255,255,255,.02);
+    white-space: nowrap;
+  }
+  .val-table td {
+    padding: 9px 16px;
+    border-bottom: 1px solid rgba(255,255,255,.05);
+    vertical-align: middle;
+    color: var(--text, #e2e8f0);
+  }
+  .val-table tr:last-child td { border-bottom: none; }
+  .val-table tr:hover td { background: rgba(255,255,255,.03); }
+  .val-table .mono { font-family: 'DM Mono', monospace; font-size: 12px; }
+  .val-resp-ok   { color: #22c55e; font-size: 11px; font-weight: 600; }
+  .val-resp-fail { color: #ef4444; font-size: 11px; font-weight: 600; }
+  .val-resp-text { font-size: 11px; color: var(--text2,#94a3b8); max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* Leaflet dark overrides */
+  #val-map { background: #0f172a; }
+  .leaflet-tile-pane { filter: brightness(.85) saturate(.8); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Modal refinado — consistente con panel Usuarios ── */
+  .modal {
+    background: #111827 !important;
+    border: 1px solid rgba(255,255,255,.10) !important;
+    border-radius: 16px !important;
+    box-shadow: 0 25px 60px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.04) !important;
+  }
+  .modal-header {
+    padding: 18px 22px !important;
+    border-bottom: 1px solid rgba(255,255,255,.07) !important;
+    background: rgba(255,255,255,.02) !important;
+  }
+  .modal-header h3 {
+    font-size: 15px !important;
+    font-weight: 600 !important;
+    color: #f1f5f9 !important;
+    letter-spacing: -.2px !important;
+  }
+  .modal-header .btn.sm {
+    width: 28px; height: 28px;
+    padding: 0 !important;
+    display: flex !important; align-items: center !important; justify-content: center !important;
+    border-radius: 8px !important;
+    background: rgba(255,255,255,.06) !important;
+    border: 1px solid rgba(255,255,255,.08) !important;
+    color: #94a3b8 !important;
+    font-size: 14px !important;
+    transition: all .15s !important;
+  }
+  .modal-header .btn.sm:hover {
+    background: rgba(239,68,68,.15) !important;
+    border-color: rgba(239,68,68,.3) !important;
+    color: #fca5a5 !important;
+  }
+  .modal-body {
+    padding: 22px !important;
+    gap: 18px !important;
+  }
+  .modal-body .group { display: grid; gap: 6px; }
+  .modal-body .label {
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    color: #94a3b8 !important;
+    text-transform: uppercase !important;
+    letter-spacing: .4px !important;
+  }
+  .modal-body .input {
+    background: rgba(255,255,255,.05) !important;
+    border: 1px solid rgba(255,255,255,.10) !important;
+    border-radius: 8px !important;
+    color: #f1f5f9 !important;
+    padding: 10px 14px !important;
+    font-size: 13px !important;
+    transition: border-color .15s, box-shadow .15s !important;
+  }
+  .modal-body .input:focus {
+    border-color: rgba(99,102,241,.5) !important;
+    box-shadow: 0 0 0 3px rgba(99,102,241,.12) !important;
+    outline: none !important;
+  }
+  .modal-footer, .modal-body > div:last-child:has(.btn) {
+    padding-top: 4px;
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+  }
+  /* Stepper de entry-modal */
+  .modal-step-indicator .msi-num {
+    width: 24px !important; height: 24px !important;
+    border-radius: 50% !important;
+    font-size: 11px !important; font-weight: 700 !important;
+    display: flex !important; align-items: center !important; justify-content: center !important;
+    background: rgba(255,255,255,.08) !important;
+    color: #64748b !important;
+    border: 1px solid rgba(255,255,255,.1) !important;
+  }
+  .modal-step-indicator.active .msi-num {
+    background: rgba(99,102,241,.25) !important;
+    color: #a5b4fc !important;
+    border-color: rgba(99,102,241,.4) !important;
+  }
+  .modal-step-indicator .msi-label {
+    font-size: 12px !important;
+    font-weight: 500 !important;
+  }
+  </style>
 </head>
 
 <body>
@@ -27,7 +275,6 @@
   <div class="login-card">
     <div class="login-logo">
       <div class="login-logo-icon">
-        <!-- plane icon -->
         <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M21 16v-2l-8-5V3.5A1.5 1.5 0 0 0 11.5 2 1.5 1.5 0 0 0 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z"/></svg>
       </div>
       <div class="login-logo-text">
@@ -37,25 +284,102 @@
     </div>
 
     <h2>Bienvenido</h2>
-    <p>Ingresa tus credenciales para continuar.</p>
+    <p>Selecciona tu tipo de acceso.</p>
 
-    <div id="login-error" class="login-error">Usuario o contraseña incorrectos.</div>
+    <div id="login-error" class="login-error">Credenciales incorrectas.</div>
 
+    <!-- Selector de tipo -->
     <div class="form-group">
-      <label for="login-user">Usuario</label>
-      <input class="form-input" id="login-user" type="text" placeholder="usuario@siguelo.cl" autocomplete="username" />
-    </div>
-    <div class="form-group">
-      <label for="login-pass">Contraseña</label>
-      <input class="form-input" id="login-pass" type="password" placeholder="••••••••" autocomplete="current-password" />
+      <label for="login-tipo">Tipo de acceso</label>
+      <select class="form-input" id="login-tipo" onchange="onLoginTipoChange()">
+        <option value="admin">Administrador / Operador</option>
+        <option value="cliente">Cliente</option>
+      </select>
     </div>
 
-    <button class="btn-login" onclick="doLogin()">Iniciar sesión</button>
+    <!-- Campos admin -->
+    <div id="login-fields-admin">
+      <div class="form-group">
+        <label for="login-user">Usuario</label>
+        <input class="form-input" id="login-user" type="text" placeholder="usuario@siguelo.cl" autocomplete="username" />
+      </div>
+      <div class="form-group">
+        <label for="login-pass">Contraseña</label>
+        <input class="form-input" id="login-pass" type="password" placeholder="••••••••" autocomplete="current-password" />
+      </div>
+    </div>
 
-    <p class="login-hint">Demo: <strong>admin / admin</strong> · <strong>operador / op</strong></p>
+    <!-- Campos cliente -->
+    <div id="login-fields-cliente" style="display:none">
+      <div class="form-group">
+        <label for="login-rut">RUT</label>
+        <input class="form-input" id="login-rut" type="text" placeholder="12.345.678-9" autocomplete="username" />
+      </div>
+      <div class="form-group">
+        <label for="login-pass-cliente">Contraseña</label>
+        <input class="form-input" id="login-pass-cliente" type="password" placeholder="••••••••" autocomplete="current-password" />
+      </div>
+    </div>
+
+    <button class="btn-login" id="btn-login-submit" onclick="handleLogin()">Iniciar sesión</button>
   </div>
 </div>
 
+
+<!-- ════════════════════════════════════════════
+     PORTAL CLIENTE SCREEN
+════════════════════════════════════════════ -->
+<div id="cliente-screen" style="display:none">
+  <div class="cliente-portal">
+
+    <!-- Header -->
+    <header class="cp-header">
+      <div class="cp-logo">
+        <div class="login-logo-icon" style="width:32px;height:32px">
+          <svg viewBox="0 0 24 24"><path d="M21 16v-2l-8-5V3.5A1.5 1.5 0 0 0 11.5 2 1.5 1.5 0 0 0 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z"/></svg>
+        </div>
+        <span class="cp-logo-text">Síguelo</span>
+      </div>
+      <div class="cp-user">
+        <span id="cp-nombre">—</span>
+        <button class="cp-logout-btn" onclick="clienteLogout()">Cerrar sesión</button>
+      </div>
+    </header>
+
+    <!-- Contenido -->
+    <main class="cp-main">
+      <div class="cp-title-row">
+        <h2>Mis vehículos</h2>
+        <span class="cp-subtitle" id="cp-rut-badge"></span>
+      </div>
+
+      <div class="cp-search-row" id="cp-search-row" style="display:none">
+        <div class="cp-search-wrap">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input
+            class="cp-search-input"
+            id="cp-search"
+            type="text"
+            placeholder="Buscar por patente…"
+            oninput="filterCpGrid(this.value)"
+            autocomplete="off"
+          />
+        </div>
+        <span class="cp-count" id="cp-count"></span>
+      </div>
+
+      <div id="cp-loading" class="cp-empty">Cargando unidades…</div>
+      <div id="cp-empty" class="cp-empty" style="display:none">No tienes unidades asignadas.</div>
+      <div id="cp-error" class="cp-empty cp-error-msg" style="display:none"></div>
+
+      <div id="cp-grid" class="cp-grid" style="display:none"></div>
+      <div id="cp-no-result" class="cp-empty" style="display:none">Sin resultados para esa búsqueda.</div>
+    </main>
+
+  </div>
+</div>
 
 <!-- ════════════════════════════════════════════
      APP SHELL
@@ -82,7 +406,7 @@
     </nav>
 
     <div class="sidebar-footer">
-      <div class="user-card" onclick="showToast('Perfil','Próximamente...')">
+      <div class="user-card" onclick="openPerfilModal()">
         <div class="user-avatar" id="sidebar-avatar">?</div>
         <div class="user-info">
           <div class="user-name" id="sidebar-username">–</div>
@@ -233,53 +557,140 @@
         <div class="page-header">
           <div>
             <h1>Validador de Unidades</h1>
-            <p>Consulta patente o IMEI para ver estado e integraciones</p>
+            <p>Consulta patente o IMEI para ver estado GPS e integraciones</p>
           </div>
         </div>
 
+        <!-- Barra de búsqueda -->
         <div class="validator-input-area">
           <div class="group">
             <label class="label">Patente</label>
-            <input class="input mono" id="val-patente" placeholder="ABCD12" style="text-transform:uppercase;letter-spacing:1px" />
+            <input class="input mono" id="val-patente" placeholder="ABCD12"
+              style="text-transform:uppercase;letter-spacing:1px"
+              onkeydown="if(event.key==='Enter') runValidator()" />
           </div>
           <div class="group">
             <label class="label">IMEI</label>
-            <input class="input mono" id="val-imei" placeholder="358000000000000" />
+            <input class="input mono" id="val-imei" placeholder="358000000000000"
+              onkeydown="if(event.key==='Enter') runValidator()" />
           </div>
-          <button class="btn primary" onclick="runValidator()">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <button class="btn primary" id="btn-validar" onclick="runValidator()">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
             Consultar
           </button>
           <button class="btn" onclick="clearValidator()">Limpiar</button>
         </div>
 
+        <!-- Panel de resultados -->
         <div class="result-panel" id="result-panel">
+
+          <!-- Topbar: patente + badges + botón export -->
           <div class="result-main">
             <div class="result-topbar">
               <div>
                 <div class="plate" id="res-plate">–</div>
                 <div style="font-size:12px;color:var(--text2);margin-top:3px" id="res-imei">IMEI: –</div>
               </div>
-              <div style="display:flex;gap:8px;align-items:center">
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
                 <span class="badge" id="res-status-badge">–</span>
+                <span class="badge sky" id="res-gps-badge" style="display:none">GPS –</span>
+                <button class="btn sm" id="btn-export" onclick="exportValidador()" style="display:none" title="Exportar JSON">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                  Exportar JSON
+                </button>
+                <button class="btn sm" id="btn-certificado" onclick="openCertModal()" style="display:none" title="Emitir Certificado GPS">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="8" r="6"/><path d="M9 16l-3 6 6-2 6 2-3-6"/>
+                  </svg>
+                  Certificado
+                </button>
               </div>
             </div>
+
+            <!-- KV básicos -->
             <div class="result-kv">
+              <div class="kv-box"><div class="k">Cliente</div><div class="v" id="res-cliente">–</div></div>
               <div class="kv-box"><div class="k">RUT</div><div class="v mono" id="res-rut">–</div></div>
               <div class="kv-box"><div class="k">Destinos</div><div class="v" id="res-destinos-count">–</div></div>
-              <div class="kv-box"><div class="k">Último ping</div><div class="v" id="res-ping">–</div></div>
+              <div class="kv-box"><div class="k">Último TCP</div><div class="v" id="res-ping">–</div></div>
+              <div class="kv-box"><div class="k">Velocidad</div><div class="v" id="res-speed">–</div></div>
+              <div class="kv-box"><div class="k">Ignición</div><div class="v" id="res-ignition">–</div></div>
             </div>
           </div>
 
-          <div class="card">
-            <div class="card-header">
-              <h3>Integraciones / Destinos</h3>
-            </div>
-            <div class="card-body" id="res-destinos-list" style="display:flex;flex-wrap:wrap;gap:8px">
-              <!-- populated by JS -->
+          <!-- Tabs de secciones -->
+          <div class="val-tabs" id="val-tabs">
+            <button class="val-tab active" onclick="switchValTab('destinos', this)">Destinos</button>
+            <button class="val-tab" onclick="switchValTab('historial', this)">
+              Historial de envíos
+              <span class="val-tab-count" id="tab-count-historial"></span>
+            </button>
+            <button class="val-tab" onclick="switchValTab('mapa', this)">Mapa</button>
+          </div>
+
+          <!-- Tab: Destinos -->
+          <div class="val-tab-panel" id="val-panel-destinos">
+            <div class="card">
+              <div class="card-header"><h3>Integraciones / Destinos</h3></div>
+              <div class="card-body" id="res-destinos-list" style="display:flex;flex-wrap:wrap;gap:8px">
+                <!-- populated by JS -->
+              </div>
             </div>
           </div>
-        </div>
+
+          <!-- Tab: Historial -->
+          <div class="val-tab-panel" id="val-panel-historial" style="display:none">
+            <div class="card">
+              <div class="card-header">
+                <h3>Historial de envíos</h3>
+                <span style="font-size:12px;color:var(--text2)" id="res-historial-ts"></span>
+              </div>
+              <div class="card-body" style="padding:0;overflow-x:auto">
+                <div id="res-historial-loading" style="padding:24px;text-align:center;color:var(--text2);font-size:13px">
+                  Cargando historial GPS…
+                </div>
+                <table class="val-table" id="res-historial-table" style="display:none">
+                  <thead>
+                    <tr>
+                      <th>Hora</th>
+                      <th>Destino</th>
+                      <th>Estado</th>
+                      <th>Vel.</th>
+                      <th>Ign.</th>
+                      <th>Respuesta</th>
+                    </tr>
+                  </thead>
+                  <tbody id="res-historial-tbody"></tbody>
+                </table>
+                <div id="res-historial-empty" style="display:none;padding:24px;text-align:center;color:var(--text2);font-size:13px">
+                  Sin historial disponible para esta unidad.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tab: Mapa -->
+          <div class="val-tab-panel" id="val-panel-mapa" style="display:none">
+            <div class="card">
+              <div class="card-header">
+                <h3>Última ubicación conocida</h3>
+                <span style="font-size:12px;color:var(--text2)" id="res-mapa-ts"></span>
+              </div>
+              <div class="card-body" style="padding:0">
+                <div id="res-mapa-nodata" style="padding:32px;text-align:center;color:var(--text2);font-size:13px;display:none">
+                  Sin coordenadas GPS disponibles.
+                </div>
+                <div id="val-map" style="height:380px;border-radius:0 0 8px 8px"></div>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /result-panel -->
       </div>
 
       <!-- ──────────────────── ADMIN ──────────────────── -->
@@ -316,7 +727,7 @@
                     <input id="admin-search" placeholder="Buscar patente, IMEI, cliente..." oninput="filterAdminTable()" />
                   </div>
                   <div class="toolbar-right">
-                    <button class="btn sm danger" id="btn-delete-selected" disabled onclick="showToast('Eliminar','Funcionalidad próximamente')">
+                    <button class="btn sm danger" id="btn-delete-selected" disabled onclick="deleteSelected()">
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
                       Eliminar
                     </button>
@@ -330,13 +741,16 @@
                       <th><input type="checkbox" id="chk-all" onchange="toggleAll(this)" /></th>
                       <th>Patente</th>
                       <th>IMEI</th>
+                      <th>Cliente</th>
+                      <th>RUT</th>
                       <th>Destinos</th>
+                      <th>Estado</th>
                       <th>Acciones</th>
                     </tr>
                   </thead>
                   <tbody id="admin-tbody">
                     <tr>
-                      <td colspan="5">
+                      <td colspan="8">
                         <div class="empty-state">
                           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
                           <p>No hay datos cargados</p>
@@ -362,7 +776,7 @@
                   <label class="label">URL base</label>
                   <input class="input mono" id="api-base-url" placeholder="https://tu-app.fly.dev" />
                 </div>
-                <button class="btn primary" onclick="showToast('API','Funcionalidad próximamente')">
+                <button class="btn primary" onclick="renderAdminTable()">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.95"/></svg>
                   Cargar datos
                 </button>
@@ -377,7 +791,29 @@
               <div class="card-body" style="display:grid;gap:10px">
                 <div>
                   <label class="label">Archivo .xlsx</label>
-                  <input class="input" type="file" id="excel-file" accept=".xlsx,.xls,.csv" />
+                  <div id="file-drop-zone" onclick="document.getElementById('excel-file').click()"
+  style="border:2px dashed var(--border);border-radius:var(--radius-sm);
+    padding:20px;text-align:center;cursor:pointer;transition:.2s ease;
+    background:rgba(0,0,0,.15)"
+  ondragover="event.preventDefault();this.style.borderColor='var(--sky)';this.style.background='rgba(56,189,248,.06)'"
+  ondragleave="this.style.borderColor='var(--border)';this.style.background='rgba(0,0,0,.15)'"
+  ondrop="event.preventDefault();this.style.borderColor='var(--border)';this.style.background='rgba(0,0,0,.15)';
+    const f=event.dataTransfer.files[0];if(f){const dt=new DataTransfer();dt.items.add(f);
+    document.getElementById('excel-file').files=dt.files;
+    document.getElementById('excel-file').dispatchEvent(new Event('change'))}">
+  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    stroke-width="1.5" style="color:var(--sky);margin-bottom:8px;display:block;margin:0 auto 8px">
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+    <polyline points="14 2 14 8 20 8"/>
+    <line x1="12" y1="18" x2="12" y2="12"/>
+    <line x1="9" y1="15" x2="15" y2="15"/>
+  </svg>
+  <div id="file-drop-label" style="font-size:13px;font-weight:600;color:var(--text2);margin-top:8px">
+    Arrastra tu archivo aquí
+  </div>
+  <div style="font-size:11px;color:var(--text3);margin-top:4px">.xlsx · .xls · .csv</div>
+</div>
+<input type="file" id="excel-file" accept=".xlsx,.xls,.csv" style="display:none" />
                 </div>
                 <div style="display:flex;gap:8px">
                   <button class="btn" style="flex:1" disabled id="btn-preview" onclick="previewImport()">Vista previa</button>
@@ -401,47 +837,151 @@
           <button class="stab" data-tab="usuarios" onclick="switchSettingsTab('usuarios')">Usuarios</button>
           <button class="stab" data-tab="orgs" onclick="switchSettingsTab('orgs')">Organizaciones</button>
           <button class="stab" data-tab="roles" onclick="switchSettingsTab('roles')">Roles</button>
+          <button class="stab" data-tab="clientes" onclick="switchSettingsTab('clientes')">Clientes</button>
+          <button class="stab" data-tab="certificados" onclick="switchSettingsTab('certificados')">Certificados</button>
         </div>
-        <div class="stab-panel" id="stab-general" style="display:grid;gap:16px;max-width:620px">
+        <div class="stab-panel" id="stab-general" style="display:grid;gap:16px;max-width:660px">
+
+          <!-- 1. Nombre de la plataforma -->
           <div class="card">
-            <div class="card-header"><h3>General</h3></div>
+            <div class="card-header">
+              <h3>Nombre de la plataforma</h3>
+            </div>
             <div class="card-body" style="display:grid;gap:14px">
-              <div><label class="label">Nombre de la plataforma</label><input class="input" value="Síguelo" /></div>
-              <div><label class="label">URL de la API por defecto</label><input class="input mono" placeholder="https://api.siguelo.cl" /></div>
-              <button class="btn primary" onclick="showToast('Guardado','Configuración guardada')">Guardar cambios</button>
+              <div>
+                <label class="label">Nombre visible</label>
+                <input class="input" id="cfg-platform-name" placeholder="Síguelo" autocomplete="off" />
+                <div style="font-size:11px;color:var(--text3);margin-top:4px">Aparece en el sidebar y en el título del navegador.</div>
+              </div>
+              <div>
+                <label class="label">Subtítulo del sidebar</label>
+                <input class="input" id="cfg-platform-subtitle" placeholder="Integraciones" autocomplete="off" />
+              </div>
+              <button class="btn primary sm" style="width:fit-content" onclick="savePlatformConfig()">Guardar</button>
             </div>
           </div>
-        </div>
-        <div class="stab-panel" id="stab-usuarios" style="display:none;max-width:620px">
-          <div class="card" id="settings-users-card">
-            <div class="card-header">
-              <h3>Usuarios</h3>
-              <button class="btn sm primary" onclick="openUserForm()">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Nuevo usuario
-              </button>
-            </div>
-            <div id="user-form-inline" style="display:none;border-bottom:1px solid var(--border)">
-              <div style="padding:16px;display:grid;gap:12px">
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-                  <div><label class="label">Usuario</label><input class="input" id="uf-username" placeholder="nombre_usuario" autocomplete="off" /></div>
-                  <div><label class="label">Rol</label><select class="input" id="uf-role"><option value="user">Operador</option><option value="admin">Administrador</option></select></div>
+
+          <!-- 2. Apariencia -->
+          <div class="card">
+            <div class="card-header"><h3>Apariencia</h3></div>
+            <div class="card-body" style="display:grid;gap:16px">
+              <div>
+                <label class="label">Color de acento</label>
+                <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px" id="accent-swatches">
+                  <!-- generado por JS -->
                 </div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-                  <div><label class="label" id="uf-pass-label">Contraseña</label><input class="input" id="uf-password" type="password" placeholder="••••••••" autocomplete="new-password" /></div>
-                  <div><label class="label">Confirmar contraseña</label><input class="input" id="uf-password2" type="password" placeholder="••••••••" autocomplete="new-password" /></div>
-                </div>
-                <div id="uf-error" style="display:none;font-size:12px;color:var(--red);background:var(--red-dim);border:1px solid rgba(248,113,113,.25);border-radius:var(--radius-sm);padding:8px 12px"></div>
-                <input type="hidden" id="uf-editing" value="" />
-                <div style="display:flex;gap:8px;justify-content:flex-end">
-                  <button class="btn sm" onclick="closeUserForm()">Cancelar</button>
-                  <button class="btn sm primary" onclick="saveUser()" id="uf-save-btn">Guardar usuario</button>
+              </div>
+              <div>
+                <label class="label">Densidad de la interfaz</label>
+                <div style="display:flex;gap:8px;margin-top:6px">
+                  <button class="density-btn" data-density="compact"  onclick="setDensity('compact')"  style="padding:6px 14px;border-radius:6px;font-size:12px;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text2)">Compacta</button>
+                  <button class="density-btn" data-density="normal"   onclick="setDensity('normal')"   style="padding:6px 14px;border-radius:6px;font-size:12px;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text2)">Normal</button>
+                  <button class="density-btn" data-density="relaxed"  onclick="setDensity('relaxed')"  style="padding:6px 14px;border-radius:6px;font-size:12px;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text2)">Espaciada</button>
                 </div>
               </div>
             </div>
+          </div>
+
+          <!-- 3. Sesión -->
+          <div class="card">
+            <div class="card-header"><h3>Sesión</h3></div>
+            <div class="card-body" style="display:grid;gap:14px">
+              <div>
+                <label class="label">Tiempo de expiración del JWT</label>
+                <select class="input" id="cfg-jwt-expiry" style="max-width:260px">
+                  <option value="1h">1 hora</option>
+                  <option value="4h">4 horas</option>
+                  <option value="8h" selected>8 horas (por defecto)</option>
+                  <option value="24h">24 horas</option>
+                  <option value="7d">7 días</option>
+                </select>
+                <div style="font-size:11px;color:var(--text3);margin-top:4px">Afecta nuevos tokens. Las sesiones activas no se ven afectadas.</div>
+              </div>
+              <button class="btn primary sm" style="width:fit-content" onclick="saveSessionConfig()">Guardar</button>
+            </div>
+          </div>
+
+          <!-- 4. Info del sistema -->
+          <div class="card">
+            <div class="card-header">
+              <h3>Info del sistema</h3>
+              <button class="btn sm" onclick="loadSystemInfo()" id="sysinfo-refresh-btn">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                </svg>
+                Actualizar
+              </button>
+            </div>
+            <div class="card-body" style="padding:0">
+              <div id="sysinfo-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:0">
+                <!-- generado por loadSystemInfo() -->
+                <div style="grid-column:1/-1;text-align:center;padding:32px;color:var(--text3);font-size:13px">
+                  Haz clic en "Actualizar" para cargar la información del sistema.
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+        <div class="stab-panel" id="stab-usuarios" style="display:none;max-width:680px">
+          <div class="card" id="settings-users-card">
+            <div class="card-header">
+              <h3>Usuarios del sistema</h3>
+              <button class="btn sm primary" onclick="openUserForm(null)">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Nuevo usuario
+              </button>
+            </div>
+
+            <!-- Form inline (oculto por defecto) -->
+            <div id="user-form-inline" style="display:none;border-bottom:1px solid var(--border);background:rgba(255,255,255,.02)">
+              <div style="padding:20px;display:grid;gap:14px">
+                <div style="font-size:13px;font-weight:600;color:var(--text2)" id="uf-form-title">Nuevo usuario</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                  <div>
+                    <label class="label">Nombre de usuario</label>
+                    <input class="input" id="uf-username" placeholder="ej: juan.perez" autocomplete="off" />
+                  </div>
+                  <div>
+                    <label class="label">Rol</label>
+                    <select class="input" id="uf-role">
+                      <option value="user">Operador</option>
+                      <option value="admin">Administrador</option>
+                    </select>
+                  </div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                  <div>
+                    <label class="label" id="uf-pass-label">Contraseña</label>
+                    <input class="input" id="uf-password" type="password" placeholder="••••••••" autocomplete="new-password" />
+                  </div>
+                  <div>
+                    <label class="label">Confirmar contraseña</label>
+                    <input class="input" id="uf-password2" type="password" placeholder="••••••••" autocomplete="new-password" />
+                  </div>
+                </div>
+                <div id="uf-error" style="display:none;font-size:12px;color:#fca5a5;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:6px;padding:10px 14px"></div>
+                <input type="hidden" id="uf-editing" value="" />
+                <div style="display:flex;gap:8px;justify-content:flex-end;padding-top:4px">
+                  <button class="btn sm" onclick="closeUserForm()">Cancelar</button>
+                  <button class="btn sm primary" onclick="saveUser()" id="uf-save-btn">Crear usuario</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tabla -->
             <div class="card-body" style="padding:0">
               <div class="table-wrap" style="border:none;border-radius:0;max-height:none">
                 <table>
-                  <thead><tr><th>Usuario</th><th>Rol</th><th>Estado</th><th style="width:100px">Acciones</th></tr></thead>
+                  <thead>
+                    <tr>
+                      <th style="padding:10px 16px;font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.5px">Usuario</th>
+                      <th style="padding:10px 16px;font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.5px">Rol</th>
+                      <th style="padding:10px 16px;font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.5px">Estado</th>
+                      <th style="padding:10px 16px;font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.5px">Acciones</th>
+                    </tr>
+                  </thead>
                   <tbody id="users-tbody"></tbody>
                 </table>
               </div>
@@ -551,6 +1091,88 @@
           </div>
         </div>
       </div>
+        <div class="stab-panel" id="stab-clientes" style="display:none;max-width:760px">
+          <div class="card">
+            <div class="card-header">
+              <h3>Clientes</h3>
+              <button class="btn sm primary" onclick="openClienteForm()">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Nuevo cliente
+              </button>
+            </div>
+
+            <!-- Formulario inline -->
+            <div id="cliente-form-inline" style="display:none;border-bottom:1px solid var(--border)">
+              <div style="padding:16px;display:grid;gap:12px">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                  <div>
+                    <label class="label">Nombre <span style="color:var(--red)">*</span></label>
+                    <input class="input" id="cf-nombre" placeholder="Empresa o persona" />
+                  </div>
+                  <div>
+                    <label class="label">RUT</label>
+                    <input class="input" id="cf-rut" placeholder="12.345.678-9" />
+                  </div>
+                </div>
+                <div style="font-size:12px;color:var(--text3);padding:8px 10px;
+                  background:rgba(56,189,248,.06);border:1px solid rgba(56,189,248,.15);
+                  border-radius:var(--radius-sm)">
+                  💡 Las unidades se asignan a este cliente desde la tabla de abajo usando el botón
+                  <strong style="color:var(--text2)">Asignar unidades</strong>.
+                </div>
+                <div id="cf-error" style="display:none;font-size:12px;color:var(--red);
+                  background:var(--red-dim);border:1px solid rgba(248,113,113,.25);
+                  border-radius:var(--radius-sm);padding:8px 12px"></div>
+                <input type="hidden" id="cf-editing" value="" />
+                <div style="display:flex;gap:8px;justify-content:flex-end">
+                  <button class="btn sm" onclick="closeClienteForm()">Cancelar</button>
+                  <button class="btn sm primary" id="cf-save-btn" onclick="saveCliente()">Guardar cliente</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tabla -->
+            <div class="card-body" style="padding:0">
+              <div class="table-wrap" style="border:none;border-radius:0;max-height:none">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Nombre</th>
+                      <th>RUT</th>
+                      <th>Unidades</th>
+                      <th>Token de acceso</th>
+                      <th>Estado</th>
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody id="clientes-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /stab-clientes -->
+
+        <!-- ══ CERTIFICADOS ══ -->
+        <div class="stab-panel" id="stab-certificados" style="display:none;max-width:820px">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:4px">
+            <div>
+              <h3>Certificados emitidos</h3>
+              <p style="font-size:13px;color:var(--text2);margin-top:3px">Historial de certificados GPS generados desde el sistema.</p>
+            </div>
+            <button class="btn sm" onclick="loadCertificados()" style="gap:6px">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+              Actualizar
+            </button>
+          </div>
+
+          <div id="cert-list-wrap">
+            <div style="padding:32px;text-align:center;color:var(--text2);font-size:13px">
+              Haz clic en Actualizar para cargar los certificados.
+            </div>
+          </div>
+        </div><!-- /stab-certificados -->
+
     </div><!-- /page-content -->
   </div><!-- /main -->
 </div><!-- /app -->
@@ -561,28 +1183,36 @@
 <div class="modal-overlay" id="entry-modal">
   <div class="modal" style="width:min(700px,100%)">
 
-    <!-- Header con breadcrumb de pasos -->
-    <div class="modal-header" style="flex-direction:column;align-items:flex-start;gap:10px">
+    <!-- Header con stepper -->
+    <div class="modal-header" style="flex-direction:column;align-items:flex-start;gap:14px">
       <div style="display:flex;align-items:center;justify-content:space-between;width:100%">
-        <h3 id="modal-title">Nueva entrada</h3>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="width:32px;height:32px;border-radius:8px;background:rgba(56,189,248,.15);border:1px solid rgba(56,189,248,.3);
+            display:flex;align-items:center;justify-content:center">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7dd3fc" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+          </div>
+          <h3 id="modal-title">Nueva entrada</h3>
+        </div>
         <button class="btn sm" onclick="closeModal()">✕</button>
       </div>
       <!-- Stepper -->
       <div style="display:flex;align-items:center;gap:0;width:100%">
-        <div class="modal-step-indicator active" id="msi-1">
+        <div class="modal-step-indicator active" id="msi-1" style="display:flex;align-items:center;gap:7px">
           <span class="msi-num">1</span>
-          <span class="msi-lbl">Destino</span>
+          <span class="msi-lbl" style="font-size:12px;font-weight:500;color:var(--text2)">Destino</span>
         </div>
-        <div class="msi-line" id="msi-line"></div>
-        <div class="modal-step-indicator" id="msi-2">
+        <div class="msi-line" id="msi-line" style="flex:1;height:1px;background:rgba(255,255,255,.1);margin:0 10px"></div>
+        <div class="modal-step-indicator" id="msi-2" style="display:flex;align-items:center;gap:7px">
           <span class="msi-num">2</span>
-          <span class="msi-lbl">Datos</span>
+          <span class="msi-lbl" style="font-size:12px;font-weight:500;color:var(--text3)">Datos</span>
         </div>
       </div>
     </div>
 
     <!-- PASO 1: Seleccionar destino -->
-    <div id="modal-step-dest" class="modal-body" style="gap:10px">
+    <div id="modal-step-dest" class="modal-body" style="gap:12px">
       <div style="font-size:13px;color:var(--text2)">
         Selecciona el destino de integración para cargar los campos requeridos por su API:
       </div>
@@ -593,24 +1223,34 @@
     <div id="modal-step-form" style="display:none">
       <div class="modal-body" style="gap:16px;max-height:65vh;overflow-y:auto">
 
-        <!-- Indicador del destino seleccionado -->
-        <div id="modal-dest-badge" style="display:flex;align-items:center;gap:8px;padding:10px 12px;
-          border-radius:var(--radius-sm);border:1px solid var(--border);background:rgba(0,0,0,.15);font-size:13px">
+        <!-- Badge destino seleccionado -->
+        <div id="modal-dest-badge" style="display:flex;align-items:center;gap:10px;padding:10px 14px;
+          border-radius:8px;border:1px solid rgba(99,102,241,.25);background:rgba(99,102,241,.08);font-size:13px">
         </div>
 
-        <!-- Campos base: Patente + IMEI siempre fijos -->
+        <!-- Campos base -->
         <div>
           <div style="font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;
-            color:var(--text3);margin-bottom:8px">Campos base</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            color:var(--text3);margin-bottom:10px">Campos base</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
             <div>
-              <label class="label">Patente <span style="color:var(--red)">*</span></label>
+              <label class="label">Patente <span style="color:#f87171;text-transform:none;letter-spacing:0">*</span></label>
               <input class="input mono" id="modal-patente" placeholder="ABCD12"
                 style="text-transform:uppercase;letter-spacing:1px" />
             </div>
             <div>
-              <label class="label">IMEI <span style="color:var(--red)">*</span></label>
+              <label class="label">IMEI <span style="color:#f87171;text-transform:none;letter-spacing:0">*</span></label>
               <input class="input mono" id="modal-imei" placeholder="358000000000000" />
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div>
+              <label class="label">Cliente</label>
+              <input class="input" id="modal-cliente" placeholder="Nombre del cliente" />
+            </div>
+            <div>
+              <label class="label">RUT cliente</label>
+              <input class="input" id="modal-rut" placeholder="12.345.678-9" />
             </div>
           </div>
         </div>
@@ -618,20 +1258,100 @@
         <!-- Campos específicos del destino -->
         <div id="modal-dest-fields-wrap" style="display:none">
           <div style="font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;
-            color:var(--text3);margin-bottom:8px" id="modal-dest-fields-title">Campos del destino</div>
+            color:var(--text3);margin-bottom:10px" id="modal-dest-fields-title">Campos del destino</div>
           <div id="modal-dest-fields" style="display:grid;gap:10px"></div>
         </div>
 
       </div>
-      <div class="modal-footer">
+      <div class="modal-footer" style="padding:16px 22px;border-top:1px solid rgba(255,255,255,.07);display:flex;gap:10px;justify-content:flex-end">
         <button class="btn" onclick="closeModal()">Cancelar</button>
         <button class="btn primary" id="modal-save-btn" onclick="saveEntry()">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
           Guardar entrada
         </button>
       </div>
     </div>
 
+  </div>
+</div>
+
+
+<!-- Modal perfil de usuario -->
+<div class="modal-overlay" id="perfil-modal">
+  <div class="modal" style="width:min(460px,100%)">
+    <div class="modal-header">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:32px;height:32px;border-radius:8px;background:rgba(99,102,241,.2);border:1px solid rgba(99,102,241,.3);
+          display:flex;align-items:center;justify-content:center">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#a5b4fc" stroke-width="2">
+            <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+          </svg>
+        </div>
+        <h3>Mi perfil</h3>
+      </div>
+      <button class="btn sm" onclick="closePerfilModal()">✕</button>
+    </div>
+    <div class="modal-body" style="gap:20px">
+
+      <!-- Avatar -->
+      <div style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:6px 0">
+        <div id="perfil-avatar-preview" onclick="document.getElementById('perfil-logo-input').click()" title="Cambiar logo"
+          style="width:68px;height:68px;border-radius:50%;background:linear-gradient(135deg,var(--sky),var(--indigo));
+          display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:700;color:#fff;cursor:pointer;
+          border:3px solid rgba(255,255,255,.12);overflow:hidden;transition:opacity .2s;
+          box-shadow:0 0 0 4px rgba(99,102,241,.15)">
+        </div>
+        <input type="file" id="perfil-logo-input" accept="image/*" style="display:none" onchange="handleLogoUpload(this)">
+        <div style="font-size:11px;color:var(--text3)">Clic para cambiar el logo del sidebar</div>
+      </div>
+
+      <!-- Separador -->
+      <div style="height:1px;background:rgba(255,255,255,.06);margin:0 -22px"></div>
+
+      <!-- Nombre visible -->
+      <div class="group">
+        <label class="label">Nombre para mostrar</label>
+        <input class="input" id="perfil-username" type="text" autocomplete="off" placeholder="Tu nombre visible">
+        <div style="font-size:11px;color:var(--text3);margin-top:3px">Aparece en el sidebar · No afecta tus credenciales</div>
+      </div>
+
+      <!-- Cambiar contraseña -->
+      <div class="group">
+        <label class="label">Cambiar contraseña <span style="color:var(--text3);font-weight:400;text-transform:none;letter-spacing:0">(opcional)</span></label>
+        <input class="input" id="perfil-current-pass" type="password" placeholder="Contraseña actual" autocomplete="current-password" style="margin-bottom:8px">
+        <input class="input" id="perfil-new-pass" type="password" placeholder="Nueva contraseña (mín. 6 caracteres)" autocomplete="new-password">
+      </div>
+
+      <div id="perfil-error" style="display:none;color:#fca5a5;font-size:12px;padding:10px 14px;background:rgba(239,68,68,.08);border-radius:8px;border:1px solid rgba(239,68,68,.2)"></div>
+
+      <div style="display:flex;gap:10px;justify-content:flex-end;padding-top:2px">
+        <button class="btn" onclick="closePerfilModal()">Cancelar</button>
+        <button class="btn primary" id="perfil-save-btn" onclick="savePerfil()">Guardar cambios</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal asignar unidades a cliente -->
+<div class="modal-overlay" id="asignar-modal">
+  <div class="modal" style="width:min(620px,100%)">
+    <div class="modal-header">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:32px;height:32px;border-radius:8px;background:rgba(20,184,166,.15);border:1px solid rgba(20,184,166,.3);
+          display:flex;align-items:center;justify-content:center">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#5eead4" stroke-width="2">
+            <rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>
+          </svg>
+        </div>
+        <h3 id="asignar-modal-title">Unidades del cliente</h3>
+      </div>
+      <button class="btn sm" onclick="closeAsignarModal()">✕</button>
+    </div>
+    <div class="modal-body" id="asignar-list" style="max-height:60vh;overflow-y:auto;gap:0;padding:0">
+    </div>
+    <div class="modal-footer" style="padding:16px 22px;border-top:1px solid rgba(255,255,255,.07);display:flex;justify-content:flex-end">
+      <button class="btn" onclick="closeAsignarModal()">Cerrar</button>
+    </div>
   </div>
 </div>
 
@@ -650,6 +1370,410 @@
   <script src="js/roles.js"></script>
   <script src="js/users.js"></script>
   <script src="js/orgs.js"></script>
+  <script src="js/clientes.js"></script>
   <script src="js/app.js"></script>
+  <script>
+  // ══════════════════════════════════════════
+  // LOGIN TIPO SWITCH
+  // ══════════════════════════════════════════
+  function onLoginTipoChange() {
+    const tipo = document.getElementById('login-tipo').value;
+    document.getElementById('login-fields-admin').style.display   = tipo === 'admin'   ? '' : 'none';
+    document.getElementById('login-fields-cliente').style.display = tipo === 'cliente' ? '' : 'none';
+    document.getElementById('login-error').style.display = 'none';
+  }
+
+  // handleLogin: dispatcher según tipo seleccionado
+  function handleLogin() {
+    const tipo = document.getElementById('login-tipo')?.value || 'admin';
+    if (tipo === 'cliente') {
+      doClienteLogin();
+    } else {
+      doLogin(); // llama al doLogin original de auth.js
+    }
+  }
+
+  // Enter key support
+  ['login-rut','login-pass-cliente','login-user','login-pass'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('keydown', e => { if (e.key === 'Enter') handleLogin(); });
+  });
+
+  // ══════════════════════════════════════════
+  // PORTAL CLIENTE
+  // ══════════════════════════════════════════
+  const API_BASE_CLIENTE = 'https://app-validaciones-production.up.railway.app';
+  const GPS_BASE_CLIENTE = API_BASE_CLIENTE;
+
+  function clienteSetToken(t)  { sessionStorage.setItem('sgl_cli_token', t); }
+  function clienteGetToken()   { return sessionStorage.getItem('sgl_cli_token'); }
+  function clienteClearSession() {
+    sessionStorage.removeItem('sgl_cli_token');
+    sessionStorage.removeItem('sgl_cli_info');
+  }
+  function clienteSetInfo(c)   { sessionStorage.setItem('sgl_cli_info', JSON.stringify(c)); }
+  function clienteGetInfo()    { try { return JSON.parse(sessionStorage.getItem('sgl_cli_info')); } catch { return null; } }
+
+  async function doClienteLogin() {
+    const rut      = document.getElementById('login-rut')?.value?.trim();
+    const password = document.getElementById('login-pass-cliente')?.value;
+    const errEl    = document.getElementById('login-error');
+    errEl.style.display = 'none';
+
+    if (!rut || !password) {
+      errEl.textContent = 'RUT y contraseña son requeridos.';
+      errEl.style.display = '';
+      return;
+    }
+
+    const btn = document.getElementById('btn-login-submit');
+    btn.disabled = true;
+    btn.textContent = 'Ingresando…';
+
+    try {
+      const res  = await fetch(`${API_BASE_CLIENTE}/clientes/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rut, password })
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        errEl.textContent = data.error || 'Credenciales incorrectas.';
+        errEl.style.display = '';
+        return;
+      }
+
+      clienteSetToken(data.token);
+      clienteSetInfo(data.cliente);
+      showClientePortal();
+
+    } catch (e) {
+      errEl.textContent = 'Error de conexión. Intenta de nuevo.';
+      errEl.style.display = '';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Iniciar sesión';
+    }
+  }
+
+  function showClientePortal() {
+    document.getElementById('login-screen').classList.add('hidden');
+    document.getElementById('app').style.display = 'none';
+    document.getElementById('cliente-screen').style.display = '';
+    const info = clienteGetInfo();
+    if (info) {
+      document.getElementById('cp-nombre').textContent = info.nombre || '—';
+      document.getElementById('cp-rut-badge').textContent = info.rut ? `RUT ${info.rut}` : '';
+    }
+    loadClienteUnits();
+  }
+
+  function clienteLogout() {
+    clienteClearSession();
+    document.getElementById('cp-search-row').style.display = 'none';
+    document.getElementById('cp-search') && (document.getElementById('cp-search').value = '');
+    document.getElementById('cliente-screen').style.display = 'none';
+    document.getElementById('login-screen').classList.remove('hidden');
+    document.getElementById('login-rut').value = '';
+    document.getElementById('login-pass-cliente').value = '';
+    document.getElementById('login-error').style.display = 'none';
+  }
+
+  async function loadClienteUnits() {
+    const token   = clienteGetToken();
+    const loading = document.getElementById('cp-loading');
+    const empty   = document.getElementById('cp-empty');
+    const errEl   = document.getElementById('cp-error');
+    const grid    = document.getElementById('cp-grid');
+
+    loading.style.display = '';
+    empty.style.display   = 'none';
+    errEl.style.display   = 'none';
+    grid.style.display    = 'none';
+    grid.innerHTML        = '';
+
+    try {
+      const res  = await fetch(`${API_BASE_CLIENTE}/clientes/me/units`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (res.status === 401) { clienteLogout(); return; }
+
+      const data = await res.json();
+      const units = data.units || [];
+      const gpsToken = data.gps_token;
+
+      loading.style.display = 'none';
+
+      if (units.length === 0) { empty.style.display = ''; return; }
+
+      grid.style.display = '';
+      // Mostrar buscador si hay más de 1 unidad
+      if (units.length > 1) {
+        document.getElementById('cp-search-row').style.display = '';
+        document.getElementById('cp-search').value = '';
+        updateCpCount(units.length, units.length);
+      }
+      // Renderizar cards base, luego enriquecer con GPS
+      units.forEach(u => {
+        const card = buildUnitCard(u, gpsToken);
+        grid.appendChild(card);
+      });
+
+      // Cargar estado GPS en paralelo para todas las patentes
+      units.forEach(u => fetchUnitGPS(u.plate, gpsToken));
+
+    } catch (e) {
+      loading.style.display = 'none';
+      errEl.textContent = 'No se pudieron cargar las unidades.';
+      errEl.style.display = '';
+    }
+  }
+
+  function buildUnitCard(unit, gpsToken) {
+    const card = document.createElement('div');
+    card.className = 'cp-card';
+    card.id = `cp-card-${unit.plate}`;
+    card.innerHTML = `
+      <div class="cp-card-plate">${unit.plate}</div>
+      <div class="cp-card-status" id="cp-status-${unit.plate}">
+        <div class="cp-dot u"></div>
+        <span>Cargando estado…</span>
+      </div>
+      <div class="cp-card-meta" id="cp-meta-${unit.plate}">—</div>
+      <div id="cp-cert-${unit.plate}"></div>
+      <div class="cp-card-btn" onclick="abrirValidador('${unit.plate}', '${gpsToken}')">
+        Ver detalle →
+      </div>
+    `;
+    // Cargar badge de certificado
+    fetchCertBadge(unit.plate);
+    return card;
+  }
+
+  async function fetchUnitGPS(plate, gpsToken) {
+    const statusEl = document.getElementById(`cp-status-${plate}`);
+    const metaEl   = document.getElementById(`cp-meta-${plate}`);
+    if (!statusEl) return;
+
+    try {
+      const res  = await fetch(`${GPS_BASE_CLIENTE}/gps/unit-status?token=${gpsToken}&plate=${encodeURIComponent(plate)}`);
+      const data = await res.json();
+
+      if (!res.ok || data.error) {
+        statusEl.innerHTML = `<div class="cp-dot u"></div><span>Sin datos</span>`;
+        return;
+      }
+
+      const tx = data.isTransmitting;
+      const age = data.tcpAgeMinutes;
+      let dotCls = 'u', label = 'Sin transmisión';
+
+      if (tx && age != null && age < 20)       { dotCls = 'g'; label = `TX OK · hace ${Math.round(age)} min`; }
+      else if (tx && age != null && age < 60)  { dotCls = 'y'; label = `Retrasado · hace ${Math.round(age)} min`; }
+      else if (tx !== undefined)               { dotCls = 'r'; label = 'Sin transmisión reciente'; }
+
+      statusEl.innerHTML = `<div class="cp-dot ${dotCls}"></div><span>${label}</span>`;
+      metaEl.textContent  = data.targets?.length ? `Destinos: ${data.targets.join(', ')}` : '';
+
+    } catch {
+      statusEl.innerHTML = `<div class="cp-dot u"></div><span>Sin datos</span>`;
+    }
+  }
+
+  function updateCpCount(visible, total) {
+    const el = document.getElementById('cp-count');
+    if (!el) return;
+    el.textContent = visible === total
+      ? `${total} vehículo${total !== 1 ? 's' : ''}`
+      : `${visible} de ${total}`;
+  }
+
+  function filterCpGrid(query) {
+    const q = query.trim().toUpperCase();
+    const cards = document.querySelectorAll('#cp-grid .cp-card');
+    let visible = 0;
+    cards.forEach(card => {
+      const plate = card.querySelector('.cp-card-plate')?.textContent?.toUpperCase() || '';
+      const match = !q || plate.includes(q);
+      card.classList.toggle('hidden', !match);
+      if (match) visible++;
+    });
+    updateCpCount(visible, cards.length);
+    // Mostrar mensaje si no hay resultados
+    const noResult = document.getElementById('cp-no-result');
+    if (noResult) noResult.style.display = visible === 0 && q ? '' : 'none';
+  }
+
+  function abrirValidador(plate, gpsToken) {
+    const url = `validador_cliente.html?token=${encodeURIComponent(gpsToken)}&plate=${encodeURIComponent(plate)}&api=${encodeURIComponent(API_BASE_CLIENTE)}`;
+    window.open(url, '_blank');
+  }
+
+
+  async function fetchCertBadge(plate) {
+    try {
+      const API = 'https://app-validaciones-production.up.railway.app';
+      const res = await fetch(`${API}/certificados/patente/${encodeURIComponent(plate)}`);
+      if (!res.ok) return;
+      const cert = await res.json();
+      const hoy = new Date();
+      let estado = cert.estado;
+      if (estado === 'vigente' && new Date(cert.fecha_vencimiento) < hoy) estado = 'vencido';
+      const el = document.getElementById(`cp-cert-${plate}`);
+      if (!el) return;
+      const labels = { vigente: '✅ Cert. vigente', vencido: '⏰ Cert. vencido', invalidado: '🚫 Cert. invalidado' };
+      if (labels[estado]) {
+        el.innerHTML = `<span class="cp-cert-badge ${estado}">${labels[estado]}</span>`;
+      }
+    } catch (_) {}
+  }
+
+  // Auto-restore si ya hay sesión cliente guardada
+  window.addEventListener('DOMContentLoaded', () => {
+    const tok = clienteGetToken();
+    if (tok) {
+      try {
+        const payload = JSON.parse(atob(tok.split('.')[1]));
+        if (payload.tipo === 'cliente' && payload.exp * 1000 > Date.now()) {
+          showClientePortal();
+          return;
+        }
+      } catch {}
+      clienteClearSession();
+    }
+  });
+  </script>
+
+  <!-- ══════════════════════════════════════════════════════════
+       MODAL CERTIFICADO GPS
+  ══════════════════════════════════════════════════════════ -->
+  <div class="modal-overlay" id="cert-modal">
+    <div class="modal" style="max-width:540px;width:100%">
+
+      <!-- Header -->
+      <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between">
+        <div style="display:flex;align-items:center;gap:11px">
+          <div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#16a34a,#059669);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </div>
+          <div>
+            <h3 style="margin:0">Emitir Certificado GPS</h3>
+            <div style="font-size:11px;color:#64748b;margin-top:1px">Verifica los datos antes de generar el documento</div>
+          </div>
+        </div>
+        <button class="btn sm" onclick="closeCertModal()">✕</button>
+      </div>
+
+      <!-- Body -->
+      <div class="modal-body" style="gap:14px">
+
+        <!-- Fila 1: Empresa + RUT -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="group">
+            <div class="label">Empresa / Cliente</div>
+            <input class="input" id="cert-empresa" type="text" placeholder="Nombre empresa" />
+          </div>
+          <div class="group">
+            <div class="label">RUT Empresa</div>
+            <input class="input" id="cert-rut" type="text" placeholder="XX.XXX.XXX-X" />
+          </div>
+        </div>
+
+        <!-- Fila 2: Patente + IMEI -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="group">
+            <div class="label">Patente (PPU)</div>
+            <input class="input" id="cert-patente" type="text" placeholder="AB1234" style="text-transform:uppercase;letter-spacing:1.5px;font-weight:700" />
+          </div>
+          <div class="group">
+            <div class="label">IMEI</div>
+            <input class="input" id="cert-imei" type="text" placeholder="IMEI del dispositivo" />
+          </div>
+        </div>
+
+        <!-- Fila 3: Fecha + Validez -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="group">
+            <div class="label">Fecha de emisión</div>
+            <input class="input" id="cert-fecha" type="date" />
+          </div>
+          <div class="group">
+            <div class="label">Validez</div>
+            <select class="input" id="cert-validez" style="cursor:pointer">
+              <option value="days:15">15 días</option>
+              <option value="days:30">30 días</option>
+              <option value="months:6">6 meses</option>
+              <option value="years:1" selected>1 año</option>
+              <option value="years:2">2 años</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Fila 4: Firmante + RUT firmante -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="group">
+            <div class="label">Nombre firmante</div>
+            <input class="input" id="cert-firmante" type="text" placeholder="Nombre completo" />
+          </div>
+          <div class="group">
+            <div class="label">RUT firmante</div>
+            <input class="input" id="cert-rut-firmante" type="text" placeholder="XX.XXX.XXX-X" />
+          </div>
+        </div>
+
+        <!-- Info emisor -->
+        <div style="padding:10px 13px;border-radius:8px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);font-size:12px;color:#64748b;line-height:1.7">
+          <span style="color:#94a3b8;font-weight:600">Emisor:</span> Tecnologías de rastreo y seguridad limitada · RUT 76.420.512-K
+          <br><span style="color:#94a3b8;font-weight:600">Organización:</span> Síguelo GPS · <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="6b18041b04191f0e2b18020c1e0e07040c1b18450807">[email&#160;protected]</a>
+        </div>
+
+        <!-- Código de certificado -->
+        <div class="group">
+          <div class="label" style="display:flex;align-items:center;gap:6px">
+            Código de certificado
+            <span style="font-size:10px;color:#475569;font-weight:400;text-transform:none;letter-spacing:0">— generado automáticamente</span>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input class="input" id="cert-codigo" type="text" readonly
+              style="font-family:monospace;font-size:11px;color:#475569;cursor:default;flex:1" />
+            <button class="btn sm" onclick="regenerarCodigoCert()" title="Regenerar código"
+              style="flex-shrink:0;width:36px;height:36px;padding:0;display:flex;align-items:center;justify-content:center">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Acciones -->
+        <div style="display:flex;gap:10px;padding-top:4px;flex-wrap:wrap">
+          <button class="btn" onclick="guardarSoloCertificado()"
+            style="flex:1;min-width:140px;justify-content:center;background:rgba(56,189,248,.08);border-color:rgba(56,189,248,.2);color:#7dd3fc;font-weight:650;gap:7px">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+              <polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+            </svg>
+            Guardar
+          </button>
+          <button class="btn" onclick="generarCertificadoPDF()"
+            style="flex:1;min-width:140px;justify-content:center;background:rgba(22,163,74,.12);border-color:rgba(34,197,94,.25);color:#86efac;font-weight:650;gap:7px">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Descargar PDF
+          </button>
+          <button class="btn sm" onclick="closeCertModal()" style="color:#64748b;border-color:rgba(255,255,255,.08)">
+            Cancelar
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+
 </body>
 </html>

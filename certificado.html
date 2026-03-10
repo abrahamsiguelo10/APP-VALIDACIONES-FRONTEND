@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Verificación de Certificado · Síguelo GPS</title>
+<style>
+:root {
+  --bg:     #0b1220;
+  --card:   rgba(15,27,46,.92);
+  --stroke: rgba(148,163,184,.15);
+  --text:   #e5e7eb;
+  --muted:  #94a3b8;
+  --green:  #22c55e;
+  --red:    #ef4444;
+  --yellow: #f59e0b;
+  --accent: #38bdf8;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  background: radial-gradient(900px 500px at 20% 0%, rgba(56,189,248,.12), transparent 55%),
+              radial-gradient(700px 500px at 85% 15%, rgba(34,197,94,.08), transparent 60%),
+              var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+}
+
+/* ── Header ── */
+.brand {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 32px;
+}
+.brand-icon {
+  width: 40px; height: 40px; border-radius: 10px;
+  background: linear-gradient(135deg, #16a34a, #059669);
+  display: flex; align-items: center; justify-content: center;
+}
+.brand-name { font-size: 20px; font-weight: 700; }
+.brand-name span { color: #eab308; }
+
+/* ── Card ── */
+.card {
+  width: 100%; max-width: 520px;
+  background: var(--card);
+  border: 1px solid var(--stroke);
+  border-radius: 20px;
+  box-shadow: 0 24px 60px rgba(0,0,0,.5);
+  overflow: hidden;
+}
+
+/* ── Status banner ── */
+.status-banner {
+  padding: 20px 24px;
+  display: flex; align-items: center; gap: 14px;
+}
+.status-banner.vigente  { background: rgba(34,197,94,.12);  border-bottom: 1px solid rgba(34,197,94,.2); }
+.status-banner.vencido  { background: rgba(245,158,11,.10); border-bottom: 1px solid rgba(245,158,11,.2); }
+.status-banner.invalidado { background: rgba(239,68,68,.10); border-bottom: 1px solid rgba(239,68,68,.2); }
+.status-banner.loading  { background: rgba(148,163,184,.06); border-bottom: 1px solid var(--stroke); }
+.status-banner.error    { background: rgba(239,68,68,.08);  border-bottom: 1px solid rgba(239,68,68,.18); }
+
+.status-icon {
+  width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px;
+}
+.status-banner.vigente   .status-icon { background: rgba(34,197,94,.18);  }
+.status-banner.vencido   .status-icon { background: rgba(245,158,11,.16); }
+.status-banner.invalidado .status-icon { background: rgba(239,68,68,.16); }
+.status-banner.loading   .status-icon { background: rgba(148,163,184,.1); }
+.status-banner.error     .status-icon { background: rgba(239,68,68,.12); }
+
+.status-label { font-size: 11px; text-transform: uppercase; letter-spacing: .6px; font-weight: 600; margin-bottom: 3px; }
+.status-banner.vigente   .status-label { color: #86efac; }
+.status-banner.vencido   .status-label { color: #fcd34d; }
+.status-banner.invalidado .status-label { color: #fca5a5; }
+.status-banner.loading   .status-label { color: var(--muted); }
+.status-banner.error     .status-label { color: #fca5a5; }
+
+.status-desc { font-size: 13px; color: var(--muted); line-height: 1.4; }
+
+/* ── Body ── */
+.card-body { padding: 22px 24px; display: grid; gap: 14px; }
+
+.kv-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (max-width: 420px) { .kv-grid { grid-template-columns: 1fr; } }
+
+.kbox {
+  padding: 11px 13px; border-radius: 10px;
+  background: rgba(2,6,23,.3);
+  border: 1px solid rgba(148,163,184,.10);
+}
+.kbox .k { font-size: 11px; color: var(--muted); margin-bottom: 5px; text-transform: uppercase; letter-spacing: .4px; font-weight: 600; }
+.kbox .v { font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kbox.full { grid-column: 1 / -1; }
+
+/* código UUID */
+.cert-code {
+  padding: 10px 13px; border-radius: 8px;
+  background: rgba(2,6,23,.4);
+  border: 1px solid rgba(148,163,184,.08);
+  font-family: monospace; font-size: 11px; color: #475569;
+  word-break: break-all; line-height: 1.5;
+}
+
+/* invalidado info */
+.invalidado-box {
+  padding: 11px 14px; border-radius: 10px;
+  background: rgba(239,68,68,.08);
+  border: 1px solid rgba(239,68,68,.18);
+  font-size: 12px; color: #fca5a5; line-height: 1.6;
+}
+
+/* footer */
+.card-footer {
+  padding: 14px 24px;
+  border-top: 1px solid rgba(148,163,184,.08);
+  font-size: 11px; color: #475569; text-align: center; line-height: 1.6;
+}
+.card-footer a { color: #38bdf8; text-decoration: none; }
+
+/* spinner */
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner {
+  width: 20px; height: 20px; border-radius: 50%;
+  border: 2px solid rgba(148,163,184,.2);
+  border-top-color: var(--accent);
+  animation: spin .8s linear infinite;
+}
+</style>
+</head>
+<body>
+
+<div class="brand">
+  <div class="brand-icon">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+    </svg>
+  </div>
+  <div class="brand-name">Síguelo <span>GPS</span></div>
+</div>
+
+<div class="card" id="card">
+  <!-- Estado inicial: cargando -->
+  <div class="status-banner loading" id="banner">
+    <div class="status-icon"><div class="spinner"></div></div>
+    <div>
+      <div class="status-label">Verificando</div>
+      <div class="status-desc" id="banner-desc">Consultando el registro del certificado…</div>
+    </div>
+  </div>
+  <div class="card-body" id="card-body" style="display:none"></div>
+  <div class="card-footer">
+    Síguelo GPS · Tecnologías de rastreo y seguridad limitada ·
+    <a href="https://www.siguelogps.cl">www.siguelogps.cl</a>
+  </div>
+</div>
+
+<script>
+const API_BASE = 'https://app-validaciones-production.up.railway.app';
+
+function fmt(dateStr) {
+  if (!dateStr) return '–';
+  const d = new Date(dateStr);
+  return d.toLocaleDateString('es-CL', { day:'2-digit', month:'2-digit', year:'numeric' });
+}
+function fmtDatetime(dateStr) {
+  if (!dateStr) return '–';
+  return new Date(dateStr).toLocaleString('es-CL');
+}
+
+async function verify() {
+  // Leer UUID de ?id= o de la ruta directa
+  const params = new URLSearchParams(location.search);
+  const id = params.get('id') || location.pathname.split('/').pop();
+
+  if (!id || id.length < 10) {
+    setBanner('error', '⚠️', 'Sin código', 'No se proporcionó un código de certificado válido.');
+    return;
+  }
+
+  try {
+    const res  = await fetch(`${API_BASE}/certificados/${id}`);
+    const data = await res.json();
+
+    if (!res.ok || !data.encontrado) {
+      setBanner('error', '❌', 'No encontrado',
+        data.mensaje || 'Este código no corresponde a ningún certificado registrado en nuestro sistema.');
+      return;
+    }
+
+    renderCert(data);
+  } catch (e) {
+    setBanner('error', '⚠️', 'Error de conexión', 'No se pudo verificar el certificado. Intenta más tarde.');
+  }
+}
+
+function setBanner(cls, icon, label, desc) {
+  const b = document.getElementById('banner');
+  b.className = `status-banner ${cls}`;
+  b.innerHTML = `
+    <div class="status-icon">${icon}</div>
+    <div>
+      <div class="status-label">${label}</div>
+      <div class="status-desc">${desc}</div>
+    </div>`;
+}
+
+function renderCert(d) {
+  const estado = d.estado; // vigente | vencido | invalidado
+
+  const bannerCfg = {
+    vigente:    { cls:'vigente',    icon:'✅', label:'Certificado Vigente',    desc:'Este certificado es auténtico y se encuentra vigente.' },
+    vencido:    { cls:'vencido',    icon:'⏰', label:'Certificado Vencido',    desc:`Expiró el ${fmt(d.fecha_vencimiento)}. Se requiere renovación.` },
+    invalidado: { cls:'invalidado', icon:'🚫', label:'Certificado Invalidado', desc:'Este certificado fue anulado por el emisor y no tiene validez.' },
+  };
+  const cfg = bannerCfg[estado] || bannerCfg.vencido;
+  setBanner(cfg.cls, cfg.icon, cfg.label, cfg.desc);
+
+  const body = document.getElementById('card-body');
+  body.style.display = '';
+
+  let html = `<div class="kv-grid">`;
+  html += kbox('Patente (PPU)', d.patente || '–');
+  html += kbox('IMEI', d.imei || '–');
+  html += kbox('Empresa', d.empresa || '–');
+  html += kbox('RUT Empresa', d.rut_empresa || '–');
+  html += kbox('Fecha de emisión', fmt(d.fecha_emision));
+  html += kbox('Fecha de vencimiento', fmt(d.fecha_vencimiento));
+  if (d.validez_texto) html += kbox('Validez', d.validez_texto);
+  html += kbox('Firmante', d.firmante || '–');
+  html += `</div>`;
+
+  if (estado === 'invalidado' && (d.invalidado_por || d.invalidado_at)) {
+    html += `<div class="invalidado-box">
+      <strong>Invalidado por:</strong> ${d.invalidado_por || '–'}<br>
+      <strong>Fecha de invalidación:</strong> ${fmtDatetime(d.invalidado_at)}
+    </div>`;
+  }
+
+  html += `<div>
+    <div style="font-size:11px;color:#475569;margin-bottom:5px;text-transform:uppercase;letter-spacing:.4px;font-weight:600">Código de certificado</div>
+    <div class="cert-code">${d.id}</div>
+  </div>`;
+
+  html += `<div style="font-size:11px;color:#475569;text-align:right">
+    Registrado el ${fmtDatetime(d.created_at)} · Emitido por: ${d.emitido_por || '–'}
+  </div>`;
+
+  body.innerHTML = html;
+}
+
+function kbox(label, value, full) {
+  return `<div class="kbox${full?' full':''}">
+    <div class="k">${label}</div>
+    <div class="v">${value}</div>
+  </div>`;
+}
+
+verify();
+</script>
+</body>
+</html>
