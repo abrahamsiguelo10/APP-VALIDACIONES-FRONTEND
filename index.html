@@ -1677,6 +1677,7 @@
       const res = await fetch(`${API}/certificados/patente/${encodeURIComponent(plate)}`);
       if (!res.ok) return;
       const cert = await res.json();
+      if (!res.ok || cert.encontrado === false) return;
       const hoy = new Date();
       let estado = cert.estado;
       if (estado === 'vigente' && new Date(cert.fecha_vencimiento) < hoy) estado = 'vencido';
