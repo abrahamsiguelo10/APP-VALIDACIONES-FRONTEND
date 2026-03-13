@@ -441,7 +441,7 @@ h1{font-size:18px;margin:0;letter-spacing:.2px}
 // Usar mismo origen (Fly) para evitar CORS y depender del dominio.
 // API_BASE: si viene ?api= en la URL lo usa; si no, rutas relativas (Fly.io)
 const _qs0 = new URLSearchParams(location.search);
-const API_BASE = _qs0.get("api") || "";
+const API_BASE = _qs0.get("api") || "https://app-validaciones-production.up.railway.app";
 const _TOKEN  = _qs0.get("token") || "";
 
 // ventana para considerar "transmitiendo"
@@ -900,8 +900,7 @@ async function cargarCertificadoCliente(plate) {
 
   try {
     // Buscar certificado más reciente vigente para esta patente
-    const API = 'https://app-validaciones-production.up.railway.app';
-    const res = await fetch(`${API}/certificados/patente/${encodeURIComponent(plate)}`);
+    const res = await fetch(`${API_BASE}/certificados/patente/${encodeURIComponent(plate)}`);
     if (!res.ok) {
       // No hay certificado registrado
       statusBox.className = 'cert-status-box no-cert';
