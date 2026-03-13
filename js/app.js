@@ -2577,7 +2577,8 @@ function filterOrgList() {
   const q    = (document.getElementById('orgs-search')?.value || '').toLowerCase().trim();
   const list = document.getElementById('org-list');
   if (!list) return;
-  const items = list.querySelectorAll('[data-org-id], button, .org-item, div[onclick]');
+  // Los items son divs con clase nav-item generados por renderOrgList en orgs.js
+  const items = [...list.children].filter(el => el.classList.contains('nav-item'));
   let visible = 0;
   items.forEach(el => {
     const text = el.textContent.toLowerCase();
