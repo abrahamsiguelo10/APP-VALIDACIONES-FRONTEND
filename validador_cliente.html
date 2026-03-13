@@ -901,14 +901,14 @@ async function cargarCertificadoCliente(plate) {
   try {
     // Buscar certificado más reciente vigente para esta patente
     const res = await fetch(`${API_BASE}/certificados/patente/${encodeURIComponent(plate)}`);
-    if (!res.ok) {
+    const cert = await res.json();
+    if (!res.ok || cert.encontrado === false) {
       // No hay certificado registrado
       statusBox.className = 'cert-status-box no-cert';
       statusBox.textContent = 'No hay certificado registrado para esta unidad.';
       statusBox.style.display = '';
       return;
     }
-    const cert = await res.json();
     _currentCert = cert;
 
     const hoy  = new Date();
