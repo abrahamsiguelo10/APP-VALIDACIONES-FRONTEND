@@ -2533,3 +2533,70 @@ async function eliminarCertificado(id, btn) {
     btn.disabled = false; btn.textContent = 'Eliminar';
   }
 }
+/* ── Buscadores en secciones de configuración ──────────────────── */
+
+/**
+ * Filtra las filas de un <tbody> según texto en columnas indicadas.
+ * @param {string} tbodyId   - ID del tbody
+ * @param {string} inputId   - ID del input de búsqueda
+ * @param {number[]} cols    - Índices de columnas donde buscar (0-based)
+ */
+function filterCfgTable(tbodyId, inputId, cols) {
+  const q     = (document.getElementById(inputId)?.value || '').toLowerCase().trim();
+  const tbody = document.getElementById(tbodyId);
+  if (!tbody) return;
+  const rows = tbody.querySelectorAll('tr');
+  let visible = 0;
+  rows.forEach(tr => {
+    const text = cols.map(i => tr.cells[i]?.textContent || '').join(' ').toLowerCase();
+    const show = !q || text.includes(q);
+    tr.style.display = show ? '' : 'none';
+    if (show) visible++;
+  });
+  // Mostrar fila vacía si no hay resultados
+  let emptyRow = tbody.querySelector('tr.cfg-empty-row');
+  if (!visible && q) {
+    if (!emptyRow) {
+      emptyRow = document.createElement('tr');
+      emptyRow.className = 'cfg-empty-row';
+      emptyRow.innerHTML = `<td colspan="10" style="text-align:center;padding:20px;color:var(--text3);font-size:13px">Sin resultados para "<em>${q}</em>"</td>`;
+      tbody.appendChild(emptyRow);
+    } else {
+      emptyRow.style.display = '';
+      emptyRow.querySelector('td').innerHTML = `Sin resultados para "<em>${q}</em>"`;
+    }
+  } else if (emptyRow) {
+    emptyRow.style.display = 'none';
+  }
+}
+
+/**
+ * Filtra los items del org-list por texto.
+ */
+function filterOrgList() {
+  const q    = (document.getElementById('orgs-search')?.value || '').toLowerCase().trim();
+  const list = document.getElementById('org-list');
+  if (!list) return;
+  const items = list.querySelectorAll('[data-org-id], button, .org-item, div[onclick]');
+  let visible = 0;
+  items.forEach(el => {
+    const text = el.textContent.toLowerCase();
+    const show = !q || text.includes(q);
+    el.style.display = show ? '' : 'none';
+    if (show) visible++;
+  });
+  // Mensaje vacío
+  let emptyEl = list.querySelector('.org-empty-msg');
+  if (!visible && q) {
+    if (!emptyEl) {
+      emptyEl = document.createElement('div');
+      emptyEl.className = 'org-empty-msg';
+      emptyEl.style.cssText = 'padding:12px 8px;text-align:center;font-size:12px;color:var(--text3)';
+      list.appendChild(emptyEl);
+    }
+    emptyEl.textContent = `Sin resultados para "${q}"`;
+    emptyEl.style.display = '';
+  } else if (emptyEl) {
+    emptyEl.style.display = 'none';
+  }
+}
