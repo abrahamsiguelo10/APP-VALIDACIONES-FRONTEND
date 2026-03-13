@@ -171,8 +171,9 @@
   .val-table tr:last-child td { border-bottom: none; }
   .val-table tr:hover td { background: rgba(255,255,255,.03); }
   .val-table .mono { font-family: 'DM Mono', monospace; font-size: 12px; }
-  .val-resp-ok   { color: #22c55e; font-size: 11px; font-weight: 600; }
-  .val-resp-fail { color: #ef4444; font-size: 11px; font-weight: 600; }
+  .val-resp-ok      { color: #22c55e; font-size: 11px; font-weight: 600; }
+  .val-resp-fail    { color: #ef4444; font-size: 11px; font-weight: 600; }
+  .val-resp-pending { color: #94a3b8; font-size: 11px; font-weight: 500; }
   .val-resp-text { font-size: 11px; color: var(--text2,#94a3b8); max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   /* Leaflet dark overrides */
   #val-map { background: #0f172a; }
@@ -1414,6 +1415,26 @@
   function clienteSetInfo(c)   { sessionStorage.setItem('sgl_cli_info', JSON.stringify(c)); }
   function clienteGetInfo()    { try { return JSON.parse(sessionStorage.getItem('sgl_cli_info')); } catch { return null; } }
 
+
+  /* ── fetch con reintentos para 502 (Railway cold start) ── */
+  async function fetchConRetry(url, opts = {}, reintentos = 3, delayMs = 1500) {
+    for (let i = 0; i < reintentos; i++) {
+      try {
+        const res = await fetch(url, opts);
+        if (res.status === 502 && i < reintentos - 1) {
+          const btn = document.getElementById('btn-login-submit');
+          if (btn) btn.textContent = `Reconectando… (${i+1}/${reintentos})`;
+          await new Promise(r => setTimeout(r, delayMs));
+          continue;
+        }
+        return res;
+      } catch (e) {
+        if (i === reintentos - 1) throw e;
+        await new Promise(r => setTimeout(r, delayMs));
+      }
+    }
+  }
+
   async function doClienteLogin() {
     const rut      = document.getElementById('login-rut')?.value?.trim();
     const password = document.getElementById('login-pass-cliente')?.value;
@@ -1431,7 +1452,7 @@
     btn.textContent = 'Ingresando…';
 
     try {
-      const res  = await fetch(`${API_BASE_CLIENTE}/clientes/login`, {
+      const res  = await fetchConRetry(`${API_BASE_CLIENTE}/clientes/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ rut, password })
@@ -1449,7 +1470,7 @@
       showClientePortal();
 
     } catch (e) {
-      errEl.textContent = 'Error de conexión. Intenta de nuevo.';
+      errEl.textContent = 'El servidor está iniciando, por favor intenta de nuevo en unos segundos.';
       errEl.style.display = '';
     } finally {
       btn.disabled = false;
@@ -1494,7 +1515,7 @@
     grid.innerHTML        = '';
 
     try {
-      const res  = await fetch(`${API_BASE_CLIENTE}/clientes/me/units`, {
+      const res  = await fetchConRetry(`${API_BASE_CLIENTE}/clientes/me/units`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
