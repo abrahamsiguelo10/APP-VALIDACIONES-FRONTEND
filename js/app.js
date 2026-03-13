@@ -47,6 +47,8 @@ async function openCreateModal() {
       </svg>
       Cargando destinos…
     </div>`;
+  const ds = document.getElementById('dest-search');
+  if (ds) ds.value = '';
   _modalGoStep(1);
   document.getElementById('entry-modal').classList.add('show');
 
@@ -2594,6 +2596,38 @@ function filterOrgList() {
       emptyEl.className = 'org-empty-msg';
       emptyEl.style.cssText = 'padding:12px 8px;text-align:center;font-size:12px;color:var(--text3)';
       list.appendChild(emptyEl);
+    }
+    emptyEl.textContent = `Sin resultados para "${q}"`;
+    emptyEl.style.display = '';
+  } else if (emptyEl) {
+    emptyEl.style.display = 'none';
+  }
+}
+
+/**
+ * Filtra los dest-card del modal-dest-grid por texto.
+ * Los items son divs con clase dest-card generados por _renderDestStep.
+ */
+function filterDestGrid() {
+  const q    = (document.getElementById('dest-search')?.value || '').toLowerCase().trim();
+  const grid = document.getElementById('modal-dest-grid');
+  if (!grid) return;
+  const cards = grid.querySelectorAll('.dest-card');
+  let visible = 0;
+  cards.forEach(card => {
+    const text = card.textContent.toLowerCase();
+    const show = !q || text.includes(q);
+    card.style.display = show ? '' : 'none';
+    if (show) visible++;
+  });
+  // Mensaje vacío
+  let emptyEl = grid.querySelector('.dest-empty-msg');
+  if (!visible && q && cards.length) {
+    if (!emptyEl) {
+      emptyEl = document.createElement('div');
+      emptyEl.className = 'dest-empty-msg';
+      emptyEl.style.cssText = 'text-align:center;padding:20px;color:var(--text3);font-size:13px';
+      grid.appendChild(emptyEl);
     }
     emptyEl.textContent = `Sin resultados para "${q}"`;
     emptyEl.style.display = '';
