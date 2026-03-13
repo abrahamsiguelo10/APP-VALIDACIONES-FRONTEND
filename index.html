@@ -929,10 +929,18 @@
           <div class="card" id="settings-users-card">
             <div class="card-header">
               <h3>Usuarios del sistema</h3>
-              <button class="btn sm primary" onclick="openUserForm(null)">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                Nuevo usuario
-              </button>
+              <div style="display:flex;gap:8px;align-items:center">
+                <div style="position:relative">
+                  <svg style="position:absolute;left:8px;top:50%;transform:translateY(-50%);opacity:.4;pointer-events:none" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                  <input class="input" id="users-search" placeholder="Buscar usuario…" autocomplete="off"
+                    style="padding-left:28px;height:30px;font-size:12px;width:180px"
+                    oninput="filterCfgTable('users-tbody','users-search',[0,1])">
+                </div>
+                <button class="btn sm primary" onclick="openUserForm(null)">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  Nuevo usuario
+                </button>
+              </div>
             </div>
 
             <!-- Form inline (oculto por defecto) -->
@@ -993,12 +1001,20 @@
   <div class="card">
     <div class="card-header">
       <h3>Roles personalizados</h3>
-      <button class="btn sm primary" onclick="openRoleForm()">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-        </svg>
-        Nuevo rol
-      </button>
+      <div style="display:flex;gap:8px;align-items:center">
+        <div style="position:relative">
+          <svg style="position:absolute;left:8px;top:50%;transform:translateY(-50%);opacity:.4;pointer-events:none" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input class="input" id="roles-search" placeholder="Buscar rol…" autocomplete="off"
+            style="padding-left:28px;height:30px;font-size:12px;width:160px"
+            oninput="filterCfgTable('roles-tbody','roles-search',[0,1])">
+        </div>
+        <button class="btn sm primary" onclick="openRoleForm()">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          Nuevo rol
+        </button>
+      </div>
     </div>
 
     <!-- Formulario inline -->
@@ -1079,6 +1095,14 @@
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                   </button>
                 </div>
+                <div style="padding:8px 8px 0">
+                  <div style="position:relative">
+                    <svg style="position:absolute;left:8px;top:50%;transform:translateY(-50%);opacity:.4;pointer-events:none" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <input class="input" id="orgs-search" placeholder="Buscar organización…" autocomplete="off"
+                      style="padding-left:28px;height:28px;font-size:12px;width:100%;box-sizing:border-box"
+                      oninput="filterOrgList()">
+                  </div>
+                </div>
                 <div id="org-list" style="padding:8px;display:grid;gap:2px"></div>
               </div>
             </div>
@@ -1096,10 +1120,18 @@
           <div class="card">
             <div class="card-header">
               <h3>Clientes</h3>
-              <button class="btn sm primary" onclick="openClienteForm()">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                Nuevo cliente
-              </button>
+              <div style="display:flex;gap:8px;align-items:center">
+                <div style="position:relative">
+                  <svg style="position:absolute;left:8px;top:50%;transform:translateY(-50%);opacity:.4;pointer-events:none" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                  <input class="input" id="clientes-search" placeholder="Buscar cliente…" autocomplete="off"
+                    style="padding-left:28px;height:30px;font-size:12px;width:180px"
+                    oninput="filterCfgTable('clientes-tbody','clientes-search',[0,1])">
+                </div>
+                <button class="btn sm primary" onclick="openClienteForm()">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  Nuevo cliente
+                </button>
+              </div>
             </div>
 
             <!-- Formulario inline -->
