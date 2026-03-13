@@ -404,10 +404,14 @@ function _renderValHistorial(results) {
       respText = parsed?.message || parsed?.error || parsed?.status || JSON.stringify(parsed).slice(0, 60);
     } catch { respText = String(r.response || '–').slice(0, 60); }
 
+    // ok === true → OK, ok === false → Error, ok === null → Sin envío
+    const okClass = ok === true ? 'val-resp-ok' : ok === false ? 'val-resp-fail' : 'val-resp-pending';
+    const okText  = ok === true ? '✓ OK'        : ok === false ? '✗ Error'       : '– Sin envío';
+
     return `<tr>
       <td class="mono">${hora}</td>
       <td>${dest}</td>
-      <td><span class="${ok ? 'val-resp-ok' : 'val-resp-fail'}">${ok ? '✓ OK' : '✗ Error'}</span></td>
+      <td><span class="${okClass}">${okText}</span></td>
       <td>${vel}</td>
       <td>${ign}</td>
       <td class="val-resp-text" title="${respText.replace(/"/g,'&quot;')}">${respText}</td>
