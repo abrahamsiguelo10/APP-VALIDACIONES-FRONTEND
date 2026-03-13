@@ -811,7 +811,7 @@ async function consultar() {
     const tx = last.tx || {};
     fechaHoraEl.textContent = formatDateCL(tx.fechaHora ?? tx.fechaHoraISO);
 
-    httpStatus.textContent = last.ok ? "OK" : "ERROR";
+    httpStatus.textContent = last.ok === true ? "OK" : last.ok === false ? "ERROR" : "—";
     skynavMsg.textContent = shortText(pickSkynavMessage(last.response), 90);
 
     const spd = (tx.velocidad ?? tx.speed ?? null);
