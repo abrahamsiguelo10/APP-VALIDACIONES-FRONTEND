@@ -1249,7 +1249,13 @@
       <div style="font-size:13px;color:var(--text2)">
         Selecciona el destino de integración para cargar los campos requeridos por su API:
       </div>
-      <div id="modal-dest-grid" style="display:grid;gap:8px;max-height:340px;overflow-y:auto;padding-right:2px"></div>
+      <div style="position:relative">
+        <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);opacity:.4;pointer-events:none" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input class="input" id="dest-search" placeholder="Buscar destino…" autocomplete="off"
+          style="padding-left:32px;height:34px;font-size:13px"
+          oninput="filterDestGrid()">
+      </div>
+      <div id="modal-dest-grid" style="display:grid;gap:8px;max-height:300px;overflow-y:auto;padding-right:2px"></div>
     </div>
 
     <!-- PASO 2: Formulario dinámico -->
