@@ -267,7 +267,6 @@
   }
   </style>
 </head>
-
 <body>
 <!-- ════════════════════════════════════════════
      LOGIN SCREEN
@@ -1833,7 +1832,20 @@
       </div>
     </div>
   </div>
-
+   <div id="dest-modal-overlay" class="modal-overlay">
+       <div class="modal" style="width:min(560px,100%)">
+         <div class="modal-header">
+           <div style="display:flex;align-items:center;gap:10px">
+             <span id="dest-modal-dot" style="width:9px;height:9px;border-radius:99px;background:var(--sky);display:inline-block"></span>
+             <h3 id="dest-modal-title">Destino</h3>
+           </div>
+           <button class="btn sm" onclick="closeDestModal()">
+             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+           </button>
+         </div>
+         <div class="modal-body" id="dest-modal-body" style="gap:16px"></div>
+       </div>
+     </div>
 
 </body>
 </html>
