@@ -259,7 +259,7 @@ function _renderValNotFound(patente, imei) {
   document.getElementById('res-gps-badge').style.display   = 'none';
   document.getElementById('btn-export').style.display      = 'none';
   document.getElementById('btn-certificado').style.display = 'none';
-  const _dlistNotFound = document.getElementById('res-destinos-list') || document.getElementById('res-destinos'); if(_dlistNotFound) _dlistNotFound.innerHTML =
+  document.getElementById('res-destinos-list').innerHTML   =
     '<span style="font-size:13px;color:var(--text2)">Unidad no registrada en el sistema.</span>';
   document.getElementById('res-historial-tbody').innerHTML = '';
   document.getElementById('res-historial-table').style.display  = 'none';
@@ -289,7 +289,7 @@ function _renderValBasic(unit) {
   gpsBadge.style.display = '';
 
   // Destinos
-  const destList = document.getElementById('res-destinos-list') || document.getElementById('res-destinos');
+  const destList = document.getElementById('res-destinos-list');
   if (!(unit.destinations||[]).length) {
     destList.innerHTML = '<span style="font-size:13px;color:var(--text2)">Sin destinos asignados</span>';
   } else {
@@ -345,10 +345,11 @@ function _renderValGps({ status, responses }) {
       : `${age} min atrás`;
   } else {
     gpsBadge.textContent = 'Sin transmisión';
-    gpsBadge.className   = 'badge red';
-    document.getElementById('res-ping').textContent     = '–';
-    document.getElementById('res-speed').textContent    = '–';
-    document.getElementById('res-ignition').textContent = '–';
+  gpsBadge.className   = 'badge red';
+  document.getElementById('res-ping').textContent     = '–';
+  document.getElementById('res-speed').textContent    = '–';
+  document.getElementById('res-ignition').textContent = '–';
+  _renderValDestinos(status, responses);
   }
 
   // — Último dato de posición —
@@ -372,9 +373,6 @@ function _renderValGps({ status, responses }) {
     .filter(r => r.tx?.lat && r.tx?.lon)
     .map(r => r.tx);
   _renderValMapa(pointsWithCoords);
-
-  // — Destinos: siempre al final, con o sin transmisión —
-  _renderValDestinos(status, responses);
 }
 
 function _renderValHistorial(results) {
@@ -614,9 +612,6 @@ function clearValidator() {
   document.getElementById('result-panel').classList.remove('show');
   _valUnit      = null;
   _valGpsData   = null;
-  // Limpiar panel de destinos
-  const _elDest = document.getElementById('res-destinos');
-  if (_elDest) _elDest.innerHTML = '';
   // Limpiar mapa
   if (_valMap) {
     _valMapLayers.forEach(l => _valMap.removeLayer(l));
@@ -1109,7 +1104,14 @@ async function importExcel() {
     if (unitsWithDests.length) {
       btn.textContent = 'Preparando organizaciones…';
 
-      // Mapa nombre → id con las orgs existentes
+      // Recargar orgs desde el servidor — estado fresco para evitar duplicados
+      // aunque el usuario importe varias veces en la misma sesión
+      try {
+        const freshDests = await api.get('/destinations');
+        freshDests.forEach(d => { ORGS[d.id] = destToOrg(d); });
+      } catch (_) {}
+
+      // Mapa nombre (lowercase) → id con las orgs actualizadas
       const orgByName = {};
       Object.entries(ORGS).forEach(([id, org]) => {
         orgByName[org.name.toLowerCase().trim()] = id;
@@ -1120,10 +1122,10 @@ async function importExcel() {
         unitsWithDests.flatMap(u => u.destinos).map(d => d.trim()).filter(Boolean)
       )];
 
-      // Crear secuencialmente las que no existen (evita duplicados por paralelismo)
+      // Crear secuencialmente las que NO existen (comparación insensible a mayúsculas)
       for (const destNombre of allDestNames) {
         const key = destNombre.toLowerCase().trim();
-        if (orgByName[key]) continue; // ya existe, saltar
+        if (orgByName[key]) continue; // ya existe — no crear duplicado
 
         try {
           const newId   = 'org-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
@@ -1136,7 +1138,13 @@ async function importExcel() {
           });
           ORGS[newId] = destToOrg(newDest);
           orgByName[key] = newId;
-        } catch (_) {}
+        } catch (err) {
+          // Si el backend rechazó por nombre duplicado, usar la existente
+          const existing = Object.entries(ORGS).find(([,o]) =>
+            o.name.toLowerCase().trim() === key
+          );
+          if (existing) orgByName[key] = existing[0];
+        }
       }
 
       // ── PASO 3: Asignar destinos en paralelo (orgs ya existen todas) ──
