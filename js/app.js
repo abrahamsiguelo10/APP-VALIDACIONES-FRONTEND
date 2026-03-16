@@ -289,7 +289,7 @@ function _renderValBasic(unit) {
   gpsBadge.style.display = '';
 
   // Destinos
-  const destList = document.getElementById('res-destinos-list');
+ const destList = document.getElementById('res-destinos-list') || document.getElementById('res-destinos');
   if (!(unit.destinations||[]).length) {
     destList.innerHTML = '<span style="font-size:13px;color:var(--text2)">Sin destinos asignados</span>';
   } else {
