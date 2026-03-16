@@ -115,6 +115,11 @@ function renderOrgEditor(id) {
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
               Guardar cambios
             </button>
+            <button class="btn sm" onclick="orgClose()" title="Cerrar" style="padding:4px 8px">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
           </div>
         </div>
       </div>
@@ -348,4 +353,17 @@ function renderSchemaPreview(orgId) {
   const fields=[...(org.fields||[])].sort((a,b)=>a.order-b.order).filter(f=>f.apiKey||f.label);
   if(!fields.length){preview.innerHTML='<div style="color:var(--text3);font-size:13px;grid-column:span 2">Sin campos definidos</div>';return;}
   preview.innerHTML=fields.map(f=>`<div><label class="label" style="display:flex;align-items:center;gap:5px">${escHtml(f.label||f.apiKey)}${f.required?'<span style="color:var(--red);font-size:10px">*</span>':''}<span style="margin-left:auto;font-size:10px;color:var(--text3);font-family:'DM Mono',monospace">${escHtml(f.apiKey)}</span></label>${f.type==='textarea'?`<textarea class="textarea" placeholder="${escHtml(f.label)}" disabled style="min-height:60px;opacity:.6"></textarea>`:f.type==='select'?`<select class="input" disabled style="opacity:.6"><option>– ${escHtml(f.label)} –</option></select>`:`<input class="input" placeholder="${escHtml(f.label)}" disabled style="opacity:.6" />`}</div>`).join('');
+}
+function orgClose() {
+  activeOrgId = null;
+  renderOrgList();
+  document.getElementById('org-editor').innerHTML = `
+    <div class="empty-state" style="padding:80px 20px">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+        style="width:40px;height:40px;margin-bottom:14px;opacity:.3">
+        <path d="M3 21h18M9 8h1M9 12h1M9 16h1M14 8h1M14 12h1M14 16h1M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16"/>
+      </svg>
+      <p>Selecciona o crea una organización</p>
+      <small>Define el mapeo de campos y URL de API para cada cliente</small>
+    </div>`;
 }
