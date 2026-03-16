@@ -349,7 +349,7 @@ function _renderValGps({ status, responses }) {
   document.getElementById('res-ping').textContent     = '–';
   document.getElementById('res-speed').textContent    = '–';
   document.getElementById('res-ignition').textContent = '–';
-  _renderValDestinos(status, responses);
+
   }
 
   // — Último dato de posición —
@@ -373,6 +373,9 @@ function _renderValGps({ status, responses }) {
     .filter(r => r.tx?.lat && r.tx?.lon)
     .map(r => r.tx);
   _renderValMapa(pointsWithCoords);
+  _renderValHistorial(results);
+  _renderValMapa(pointsWithCoords);
+  _renderValDestinos(status, responses);
 }
 
 function _renderValHistorial(results) {
