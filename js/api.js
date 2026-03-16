@@ -19,7 +19,7 @@ function setSessionUser(u) { sessionStorage.setItem('sgl_user', JSON.stringify(u
 function clearSession()    { clearToken(); sessionStorage.removeItem('sgl_user'); }
 
 /* ── Fetch con auth ───────────────────────────────────────────── */
-async function apiFetch(path, options = {}) {
+async function apiFetch(path, options = {}, _retries = 3) {
   const token = getToken();
 
   const headers = {
@@ -35,6 +35,15 @@ async function apiFetch(path, options = {}) {
     // Error de red (Railway caído, sin internet, etc.)
     showToast('Sin conexión', 'No se pudo contactar el servidor. Verifica tu conexión.');
     throw err;
+  }
+
+  // 429 Too Many Requests — reintentar con backoff
+  if (res.status === 429 && _retries > 0) {
+    const retryAfter = parseInt(res.headers.get('Retry-After') || '2', 10);
+    const waitMs = retryAfter > 0 ? retryAfter * 1000 : Math.pow(2, 3 - _retries) * 1000;
+    console.warn(`[api] 429 en ${path} — reintentando en ${waitMs}ms (${_retries} intentos restantes)`);
+    await new Promise(r => setTimeout(r, waitMs));
+    return apiFetch(path, options, _retries - 1);
   }
 
   // Token expirado o usuario deshabilitado → forzar logout
