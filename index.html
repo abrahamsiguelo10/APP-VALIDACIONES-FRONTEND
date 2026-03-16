@@ -596,7 +596,6 @@
               <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
                 <span class="badge" id="res-status-badge">–</span>
                 <span class="badge sky" id="res-gps-badge" style="display:none">GPS –</span>
-                <div id="res-destinos"></div>
                 <button class="btn sm" id="btn-export" onclick="exportValidador()" style="display:none" title="Exportar JSON">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -636,12 +635,7 @@
 
           <!-- Tab: Destinos -->
           <div class="val-tab-panel" id="val-panel-destinos">
-            <div class="card">
-              <div class="card-header"><h3>Integraciones / Destinos</h3></div>
-              <div class="card-body" id="res-destinos-list" style="display:flex;flex-wrap:wrap;gap:8px">
-                <!-- populated by JS -->
-              </div>
-            </div>
+            <div id="res-destinos"></div>
           </div>
 
           <!-- Tab: Historial -->
