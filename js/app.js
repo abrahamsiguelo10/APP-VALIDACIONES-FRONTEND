@@ -211,8 +211,6 @@ async function runValidator() {
 
   // Reset GPS data
   _valGpsData = null;
-  const elDest = document.getElementById('res-destinos');
-  if (elDest) elDest.innerHTML = '';
   try {
     // 1. Buscar unidad en BD
     const data = imei
