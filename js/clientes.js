@@ -288,11 +288,10 @@ async function openAsignarUnidades(clienteId) {
 
   try {
     const units = await api.get('/units');
-    const assigned   = units.filter(u => u.cliente_id === clienteId);
+    const assigned = units.filter(u => u.cliente_id === clienteId);
     const unassigned = units.filter(u => !u.cliente_id);
 
     document.getElementById('asignar-list').innerHTML = `
-      <!-- ── ASIGNADAS ── -->
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
         <span style="font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--text3)">
           Asignadas a este cliente (${assigned.length})
@@ -302,20 +301,20 @@ async function openAsignarUnidades(clienteId) {
             style="display:none">Quitar seleccionadas (0)</button>` : ''}
       </div>
       <div id="asignar-assigned-list">
-        ${assigned.length ? assigned.map(u => `
-          <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;
-            background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.15);
-            border-radius:var(--radius-sm);margin-bottom:4px;min-width:0;max-width:100%">
-            <input type="checkbox" class="chk-desasignar" data-imei="${u.imei}"
-              onchange="actualizarSelDesasignar()"
-              style="flex-shrink:0;width:15px;height:15px;cursor:pointer;accent-color:var(--red)">
-            <span class="mono" style="font-weight:600;flex:1;min-width:0;overflow:hidden;
-              text-overflow:ellipsis;white-space:nowrap">${u.plate || '—'}</span>
-            <span class="mono" style="font-size:11px;color:var(--text2);flex-shrink:0">${u.imei}</span>
-            <button class="btn sm danger" style="flex-shrink:0"
-              onclick="desasignarUnidad('${u.imei}')">Quitar</button>
-          </div>`).join('')
-          : '<div style="font-size:12px;color:var(--text3);margin-bottom:12px">Sin unidades asignadas aún.</div>'}
+      ${assigned.length ? assigned.map(u => `
+        <div style="display:grid;grid-template-columns:20px 1fr auto auto;align-items:center;
+          gap:10px;padding:8px 10px;
+          background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.15);
+          border-radius:var(--radius-sm);margin-bottom:4px">
+          <input type="checkbox" class="chk-desasignar" data-imei="${u.imei}"
+            onchange="actualizarSelDesasignar()"
+            style="width:15px;height:15px;cursor:pointer;accent-color:var(--red)">
+          <span class="mono" style="font-weight:600;overflow:hidden;
+            text-overflow:ellipsis;white-space:nowrap">${u.plate || '—'}</span>
+          <span class="mono" style="font-size:11px;color:var(--text2);white-space:nowrap">${u.imei}</span>
+          <button class="btn sm danger" style="white-space:nowrap"
+            onclick="desasignarUnidad('${u.imei}')">Quitar</button>
+        </div>`).join('') : '<div style="font-size:12px;color:var(--text3);margin-bottom:12px">Sin unidades asignadas aún.</div>'}
       </div>
 
       <!-- ── SIN ASIGNAR ── -->
@@ -328,22 +327,25 @@ async function openAsignarUnidades(clienteId) {
             style="display:none">Asignar seleccionadas (0)</button>` : ''}
       </div>
       ${unassigned.length ? `
-        <div style="display:flex;gap:8px;margin-bottom:8px">
+        <div style="margin-bottom:8px">
           <input class="input" id="asignar-search" placeholder="Buscar patente o IMEI…"
-            oninput="filtrarAsignar()" style="flex:1;font-size:13px" />
+            oninput="filtrarAsignar()" style="width:100%;box-sizing:border-box;font-size:13px" />
         </div>
-        <div id="asignar-unidades-list">
+        <div id="asignar-unidades-list" style="display:flex;flex-direction:column;gap:4px">
           ${unassigned.map(u => `
-            <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;
+            <div style="display:grid;grid-template-columns:20px 1fr auto auto;align-items:center;
+              gap:10px;padding:8px 10px;
               background:rgba(0,0,0,.15);border:1px solid var(--border);
-              border-radius:var(--radius-sm);margin-bottom:4px"
+              border-radius:var(--radius-sm)"
               data-plate="${(u.plate||'').toLowerCase()}" data-imei="${u.imei.toLowerCase()}">
               <input type="checkbox" class="chk-asignar" data-imei="${u.imei}"
                 onchange="actualizarSelAsignar()"
-                style="flex-shrink:0;width:15px;height:15px;cursor:pointer;accent-color:var(--sky)">
-              <span class="mono" style="font-weight:600;flex:1">${u.plate || '—'}</span>
-              <span class="mono" style="font-size:11px;color:var(--text2)">${u.imei}</span>
-              <button class="btn sm primary" onclick="asignarUnidad('${u.imei}')">Asignar</button>
+                style="width:15px;height:15px;cursor:pointer;accent-color:var(--sky)">
+              <span class="mono" style="font-weight:600;overflow:hidden;
+                text-overflow:ellipsis;white-space:nowrap">${u.plate || '—'}</span>
+              <span class="mono" style="font-size:11px;color:var(--text2);white-space:nowrap">${u.imei}</span>
+              <button class="btn sm primary" style="white-space:nowrap"
+                onclick="asignarUnidad('${u.imei}')">Asignar</button>
             </div>`).join('')}
         </div>` : '<div style="font-size:12px;color:var(--text3)">Todas las unidades tienen cliente asignado.</div>'}
     `;
@@ -358,7 +360,6 @@ function filtrarAsignar() {
   document.querySelectorAll('#asignar-unidades-list > div').forEach(el => {
     const match = el.dataset.plate?.includes(q) || el.dataset.imei?.includes(q);
     el.style.display = match ? '' : 'none';
-    // Desmarcar checkboxes de filas ocultas
     if (!match) {
       const chk = el.querySelector('.chk-asignar');
       if (chk) chk.checked = false;
@@ -390,12 +391,8 @@ function actualizarSelAsignar() {
   const checked = [...document.querySelectorAll('.chk-asignar:checked')];
   const btn = document.getElementById('btn-asignar-sel');
   if (!btn) return;
-  if (checked.length > 0) {
-    btn.style.display = '';
-    btn.textContent = `Asignar seleccionadas (${checked.length})`;
-  } else {
-    btn.style.display = 'none';
-  }
+  btn.style.display = checked.length ? '' : 'none';
+  btn.textContent = `Asignar seleccionadas (${checked.length})`;
 }
 
 async function asignarSeleccionadas() {
@@ -422,12 +419,8 @@ function actualizarSelDesasignar() {
   const checked = [...document.querySelectorAll('.chk-desasignar:checked')];
   const btn = document.getElementById('btn-desasignar-sel');
   if (!btn) return;
-  if (checked.length > 0) {
-    btn.style.display = '';
-    btn.textContent = `Quitar seleccionadas (${checked.length})`;
-  } else {
-    btn.style.display = 'none';
-  }
+  btn.style.display = checked.length ? '' : 'none';
+  btn.textContent = `Quitar seleccionadas (${checked.length})`;
 }
 
 async function desasignarSeleccionadas() {
