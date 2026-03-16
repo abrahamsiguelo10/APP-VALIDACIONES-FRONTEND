@@ -345,9 +345,11 @@ function _renderValGps({ status, responses }) {
       : `${age} min atrás`;
   } else {
     gpsBadge.textContent = 'Sin transmisión';
-    gpsBadge.className   = 'badge red';
-    document.getElementById('res-ping').textContent = '–';
-     _renderValDestinos(status, responses);
+  gpsBadge.className   = 'badge red';
+  document.getElementById('res-ping').textContent     = '–';
+  document.getElementById('res-speed').textContent    = '–';
+  document.getElementById('res-ignition').textContent = '–';
+  _renderValDestinos(status, responses);
   }
 
   // — Último dato de posición —
