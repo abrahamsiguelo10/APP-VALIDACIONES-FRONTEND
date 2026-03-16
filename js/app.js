@@ -349,9 +349,9 @@ function _renderValGps({ status, responses }) {
   document.getElementById('res-ping').textContent     = '–';
   document.getElementById('res-speed').textContent    = '–';
   document.getElementById('res-ignition').textContent = '–';
-  _renderValDestinos(status, responses);
+ 
   }
-
+   _renderValDestinos(status, responses);
   // — Último dato de posición —
   const results = responses?.results || [];
   const lastWithTx = results.find(r => r.tx?.lat && r.tx?.lon);
