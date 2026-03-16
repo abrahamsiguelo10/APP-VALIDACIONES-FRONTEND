@@ -259,7 +259,7 @@ function _renderValNotFound(patente, imei) {
   document.getElementById('res-gps-badge').style.display   = 'none';
   document.getElementById('btn-export').style.display      = 'none';
   document.getElementById('btn-certificado').style.display = 'none';
-  document.getElementById('res-destinos-list').innerHTML   =
+  const _dlistNotFound = document.getElementById('res-destinos-list') || document.getElementById('res-destinos'); if(_dlistNotFound) _dlistNotFound.innerHTML =
     '<span style="font-size:13px;color:var(--text2)">Unidad no registrada en el sistema.</span>';
   document.getElementById('res-historial-tbody').innerHTML = '';
   document.getElementById('res-historial-table').style.display  = 'none';
@@ -289,7 +289,7 @@ function _renderValBasic(unit) {
   gpsBadge.style.display = '';
 
   // Destinos
- const destList = document.getElementById('res-destinos-list') || document.getElementById('res-destinos');
+  const destList = document.getElementById('res-destinos-list') || document.getElementById('res-destinos');
   if (!(unit.destinations||[]).length) {
     destList.innerHTML = '<span style="font-size:13px;color:var(--text2)">Sin destinos asignados</span>';
   } else {
@@ -345,11 +345,10 @@ function _renderValGps({ status, responses }) {
       : `${age} min atrás`;
   } else {
     gpsBadge.textContent = 'Sin transmisión';
-  gpsBadge.className   = 'badge red';
-  document.getElementById('res-ping').textContent     = '–';
-  document.getElementById('res-speed').textContent    = '–';
-  document.getElementById('res-ignition').textContent = '–';
-
+    gpsBadge.className   = 'badge red';
+    document.getElementById('res-ping').textContent     = '–';
+    document.getElementById('res-speed').textContent    = '–';
+    document.getElementById('res-ignition').textContent = '–';
   }
 
   // — Último dato de posición —
@@ -373,8 +372,8 @@ function _renderValGps({ status, responses }) {
     .filter(r => r.tx?.lat && r.tx?.lon)
     .map(r => r.tx);
   _renderValMapa(pointsWithCoords);
-  _renderValHistorial(results);
-  _renderValMapa(pointsWithCoords);
+
+  // — Destinos: siempre al final, con o sin transmisión —
   _renderValDestinos(status, responses);
 }
 
@@ -615,6 +614,9 @@ function clearValidator() {
   document.getElementById('result-panel').classList.remove('show');
   _valUnit      = null;
   _valGpsData   = null;
+  // Limpiar panel de destinos
+  const _elDest = document.getElementById('res-destinos');
+  if (_elDest) _elDest.innerHTML = '';
   // Limpiar mapa
   if (_valMap) {
     _valMapLayers.forEach(l => _valMap.removeLayer(l));
@@ -2829,4 +2831,3 @@ document.addEventListener('click', e => {
   const overlay = document.getElementById('dest-modal-overlay');
   if (e.target === overlay) closeDestModal();
 });
-
