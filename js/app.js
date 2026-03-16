@@ -2641,17 +2641,17 @@ function _renderValDestinos(status, responses) {
   const container = document.getElementById('res-destinos');
   if (!container) return;
  
-  // targets = nombres de destinos asignados a la unidad (de status.targets)
   const targets = status?.targets || [];
-  // results = historial de eventos con reenvío
-  const results = responses?.results || [];
+  const results = (responses?.results || []);
  
   if (!targets.length) {
     container.innerHTML = `
       <div class="card" style="margin-top:16px">
-        <div class="card-header"><h3>Integraciones / Destinos</h3></div>
+        <div class="card-header">
+          <h3>Integraciones / Destinos</h3>
+        </div>
         <div class="card-body">
-          <div style="text-align:center;padding:24px;color:var(--text3);font-size:13px">
+          <div style="text-align:center;padding:20px;color:var(--text3);font-size:13px">
             Sin destinos asignados a esta unidad
           </div>
         </div>
@@ -2659,18 +2659,16 @@ function _renderValDestinos(status, responses) {
     return;
   }
  
-  // Agrupar events por target name
-  function _groupByTarget(arr) {
-    const map = {};
-    arr.forEach(r => {
-      const key = r.target || r.destination_id || '—';
-      if (!map[key]) map[key] = [];
-      map[key].push(r);
-    });
-    return map;
-  }
+  // Agrupar eventos por nombre de destino
+  const grouped = {};
+  results.forEach(r => {
+    const key = r.target || r.destination_id || '—';
+    if (!grouped[key]) grouped[key] = [];
+    grouped[key].push(r);
+  });
  
-  const grouped = _groupByTarget(results);
+  // Guardar datos globalmente para acceder desde el modal
+  window._valDestinosData = grouped;
  
   function _timeAgo(ts) {
     if (!ts) return '—';
@@ -2681,127 +2679,150 @@ function _renderValDestinos(status, responses) {
     return new Date(ts).toLocaleDateString('es-CL');
   }
  
-  const rows = targets.map(tName => {
-    const evs     = grouped[tName] || [];
-    const last    = evs[0]; // más reciente
-    const destId  = last?.destination_id || tName; // fallback al nombre
+  const buttons = targets.map(tName => {
+    const evs  = grouped[tName] || [];
+    const last = evs[0];
+    const ok   = last?.ok;
  
-    // Badge del último reenvío
-    let fwdBadge;
-    if (!last || last.ok === null || last.ok === undefined) {
-      fwdBadge = `<span style="font-size:11px;color:var(--text3)">Sin datos</span>`;
-    } else {
-      fwdBadge = last.ok
-        ? `<span class="badge green">${(last.response || '200 OK').slice(0,30)}</span>`
-        : `<span class="badge red">${(last.response || 'Error').slice(0,30)}</span>`;
-    }
+    // Indicador de estado del último reenvío
+    let dotColor = 'var(--text3)'; // sin datos
+    if (ok === true)  dotColor = 'var(--green)';
+    if (ok === false) dotColor = 'var(--red)';
  
-    const safeId = tName.replace(/[^a-zA-Z0-9_-]/g,'_');
+    const lastTime = _timeAgo(last?.at);
  
     return `
-    <div style="border:1px solid var(--border);border-radius:8px;
-      overflow:hidden;margin-bottom:8px">
+      <button onclick="openDestModal('${tName.replace(/'/g,"\\'")}', '${dotColor}')"
+        style="display:flex;align-items:center;gap:10px;padding:10px 14px;
+          border-radius:8px;border:1px solid var(--border);background:var(--bg2);
+          cursor:pointer;text-align:left;transition:border-color .15s;width:100%"
+        onmouseover="this.style.borderColor='var(--sky)'"
+        onmouseout="this.style.borderColor='var(--border)'">
  
-      <!-- Cabecera clickeable -->
-      <div onclick="valToggleDestino('${safeId}')"
-        style="display:grid;grid-template-columns:1fr max-content max-content 18px;
-          align-items:center;gap:12px;padding:11px 14px;
-          cursor:pointer;background:var(--bg2);user-select:none">
+        <span style="width:9px;height:9px;border-radius:99px;background:${dotColor};
+          flex-shrink:0;display:inline-block"></span>
  
-        <span style="font-weight:500;font-size:13px">${tName}</span>
+        <span style="flex:1;font-size:13px;font-weight:500;color:var(--text)">${tName}</span>
  
-        <div style="text-align:right;line-height:1.3">
-          <div style="font-size:10px;color:var(--text3)">Último envío</div>
-          <div style="font-size:12px;font-weight:500">${_timeAgo(last?.at)}</div>
-        </div>
+        <span style="font-size:11px;color:var(--text3)">${lastTime}</span>
  
-        <div>${fwdBadge}</div>
- 
-        <svg id="dest-chev-${safeId}" width="14" height="14" viewBox="0 0 24 24"
-          fill="none" stroke="currentColor" stroke-width="2"
-          style="transition:transform .2s;color:var(--text3);flex-shrink:0">
-          <polyline points="6 9 12 15 18 9"/>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" style="color:var(--text3);flex-shrink:0">
+          <polyline points="9 18 15 12 9 6"/>
         </svg>
-      </div>
- 
-      <!-- Detalle expandible -->
-      <div id="dest-detail-${safeId}" style="display:none;padding:14px;
-        border-top:1px solid var(--border)">
- 
-        ${last?.tx ? `
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
-          <div>
-            <div class="label" style="margin-bottom:3px">Último GPS enviado</div>
-            <div style="font-size:12px">
-              ${last.tx.fechaHoraISO ? new Date(last.tx.fechaHoraISO).toLocaleString('es-CL') : '—'}
-            </div>
-          </div>
-          <div>
-            <div class="label" style="margin-bottom:3px">Velocidad / Coordenadas</div>
-            <div style="font-size:12px">
-              ${last.tx.speed !== null && last.tx.speed !== undefined ? last.tx.speed + ' km/h' : '—'}
-              ${last.tx.lat ? `<br><span style="color:var(--text3);font-size:11px">
-                ${parseFloat(last.tx.lat).toFixed(5)}, ${parseFloat(last.tx.lon).toFixed(5)}
-              </span>` : ''}
-            </div>
-          </div>
-        </div>` : ''}
- 
-        <!-- Historial de últimos envíos -->
-        <div class="label" style="margin-bottom:8px">
-          Últimos envíos registrados
-        </div>
-        <div id="dest-hist-${safeId}">
-          ${evs.length
-            ? `<div style="display:grid;gap:4px">` +
-              evs.slice(0,8).map(e => {
-                const ts   = e.at ? new Date(e.at).toLocaleString('es-CL') : '—';
-                const ok   = e.ok;
-                const resp = (e.response || '—').slice(0,40);
-                const spd  = e.tx?.speed !== null && e.tx?.speed !== undefined
-                  ? e.tx.speed + ' km/h' : '—';
-                return `
-                  <div style="display:grid;grid-template-columns:145px 1fr 70px 72px;
-                    gap:8px;align-items:center;padding:5px 9px;border-radius:5px;
-                    background:var(--bg2)">
-                    <span style="color:var(--text2);font-size:11px">${ts}</span>
-                    <span style="font-family:'DM Mono',monospace;font-size:11px;
-                      color:${ok ? 'var(--green)' : 'var(--red)'};
-                      overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${resp}</span>
-                    <span style="font-size:11px;color:var(--text3)">${spd}</span>
-                    <span class="badge ${ok ? 'green' : 'red'}" style="font-size:10px;justify-self:end">
-                      ${ok ? '✓ OK' : '✗ Error'}
-                    </span>
-                  </div>`;
-              }).join('') + `</div>`
-            : `<span style="font-size:12px;color:var(--text3);opacity:.6">
-                Sin historial registrado aún
-              </span>`
-          }
-        </div>
-      </div>
- 
-    </div>`;
+      </button>`;
   }).join('');
  
   container.innerHTML = `
     <div class="card" style="margin-top:16px">
       <div class="card-header">
         <h3>Integraciones / Destinos</h3>
-        <span class="badge sky">
-          ${targets.length} destino${targets.length !== 1 ? 's' : ''}
-        </span>
+        <span class="badge sky">${targets.length} destino${targets.length !== 1 ? 's' : ''}</span>
       </div>
-      <div class="card-body" style="padding:12px">${rows}</div>
+      <div class="card-body" style="display:grid;gap:8px;padding:12px">
+        ${buttons}
+      </div>
     </div>`;
 }
  
-function valToggleDestino(safeId) {
-  const detail  = document.getElementById('dest-detail-' + safeId);
-  const chevron = document.getElementById('dest-chev-'   + safeId);
-  if (!detail) return;
-  const opening = detail.style.display === 'none';
-  detail.style.display    = opening ? '' : 'none';
-  if (chevron) chevron.style.transform = opening ? 'rotate(180deg)' : '';
+// ─── openDestModal ───────────────────────────────────────────────────────────
+// Abre el modal con el historial completo del destino seleccionado.
+function openDestModal(tName, dotColor) {
+  const overlay = document.getElementById('dest-modal-overlay');
+  const title   = document.getElementById('dest-modal-title');
+  const dot     = document.getElementById('dest-modal-dot');
+  const body    = document.getElementById('dest-modal-body');
+  if (!overlay || !body) return;
+ 
+  title.textContent   = tName;
+  dot.style.background = dotColor || 'var(--sky)';
+ 
+  const evs = (window._valDestinosData || {})[tName] || [];
+ 
+  function _fmt(ts) {
+    if (!ts) return '—';
+    return new Date(ts).toLocaleString('es-CL');
+  }
+ 
+  if (!evs.length) {
+    body.innerHTML = `
+      <div style="text-align:center;padding:24px;color:var(--text3);font-size:13px">
+        Sin historial registrado para este destino
+      </div>`;
+  } else {
+    const last = evs[0];
+    // Datos generales del último evento
+    const generalHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div>
+          <div class="label" style="margin-bottom:3px">Último envío</div>
+          <div style="font-size:13px;font-weight:500">${_fmt(last.at)}</div>
+        </div>
+        <div>
+          <div class="label" style="margin-bottom:3px">Resultado</div>
+          <div>${last.ok === null || last.ok === undefined
+            ? `<span style="color:var(--text3);font-size:12px">Sin datos</span>`
+            : last.ok
+              ? `<span class="badge green">${(last.response || '200 OK').slice(0,30)}</span>`
+              : `<span class="badge red">${(last.response || 'Error').slice(0,30)}</span>`
+          }</div>
+        </div>
+        ${last.tx ? `
+        <div>
+          <div class="label" style="margin-bottom:3px">Velocidad</div>
+          <div style="font-size:13px">${last.tx.speed !== null && last.tx.speed !== undefined ? last.tx.speed + ' km/h' : '—'}</div>
+        </div>
+        <div>
+          <div class="label" style="margin-bottom:3px">GPS timestamp</div>
+          <div style="font-size:12px">${last.tx.fechaHoraISO ? _fmt(last.tx.fechaHoraISO) : '—'}</div>
+        </div>
+        ${last.tx.lat ? `
+        <div style="grid-column:span 2">
+          <div class="label" style="margin-bottom:3px">Coordenadas</div>
+          <div style="font-size:12px;font-family:'DM Mono',monospace;color:var(--sky)">
+            ${parseFloat(last.tx.lat).toFixed(6)}, ${parseFloat(last.tx.lon).toFixed(6)}
+          </div>
+        </div>` : ''}` : ''}
+      </div>`;
+ 
+    // Historial de últimos envíos
+    const histHTML = `
+      <div>
+        <div class="label" style="margin-bottom:8px">Historial de envíos</div>
+        <div style="display:grid;gap:4px">
+          ${evs.map(e => `
+            <div style="display:grid;grid-template-columns:1fr 1fr 60px;
+              gap:8px;align-items:center;padding:7px 10px;border-radius:6px;
+              background:var(--bg2);font-size:12px">
+              <span style="color:var(--text2)">${_fmt(e.at)}</span>
+              <span style="font-family:'DM Mono',monospace;
+                color:${e.ok ? 'var(--green)' : e.ok === false ? 'var(--red)' : 'var(--text3)'};
+                overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                ${(e.response || (e.ok === null ? 'Sin datos' : '—')).slice(0,35)}
+              </span>
+              <span class="badge ${e.ok ? 'green' : e.ok === false ? 'red' : ''}"
+                style="font-size:10px;justify-self:end;
+                  ${e.ok === null || e.ok === undefined ? 'opacity:.4' : ''}">
+                ${e.ok ? '✓ OK' : e.ok === false ? '✗ Error' : '—'}
+              </span>
+            </div>`).join('')}
+        </div>
+      </div>`;
+ 
+    body.innerHTML = generalHTML + histHTML;
+  }
+ 
+  overlay.classList.add('show');
 }
  
+// ─── closeDestModal ──────────────────────────────────────────────────────────
+function closeDestModal() {
+  document.getElementById('dest-modal-overlay')?.classList.remove('show');
+}
+ 
+// Cerrar al hacer clic en el fondo del overlay
+document.addEventListener('click', e => {
+  const overlay = document.getElementById('dest-modal-overlay');
+  if (e.target === overlay) closeDestModal();
+});
+
