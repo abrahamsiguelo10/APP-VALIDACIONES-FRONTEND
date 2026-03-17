@@ -1314,97 +1314,325 @@ async function deleteSelected() {
 /* ══════════════════════════════════════════════════════════════
    DASHBOARD
 ══════════════════════════════════════════════════════════════ */
-// Modal de unidades sin destino
-function _abrirModalSinDestino(units) {
+/* ══════════════════════════════════════════════════════════
+   HISTORIAL DE CAMBIOS
+══════════════════════════════════════════════════════════ */
+
+// Etiquetas legibles para las acciones
+const _AUDIT_LABELS = {
+  UNIT_CREATE:       { icon: '➕', label: 'Unidad creada',       color: 'var(--green)' },
+  UNIT_UPDATE:       { icon: '✏️',  label: 'Unidad editada',      color: 'var(--sky)'   },
+  UNIT_ENABLE:       { icon: '✅', label: 'Unidad activada',     color: 'var(--green)' },
+  UNIT_DISABLE:      { icon: '🚫', label: 'Unidad desactivada',  color: 'var(--amber)' },
+  UNIT_DELETE:       { icon: '🗑', label: 'Unidad eliminada',    color: 'var(--red)'   },
+  UNIT_BATCH_UPSERT: { icon: '📦', label: 'Carga masiva',        color: 'var(--sky)'   },
+  UNIT_BATCH_DELETE: { icon: '🗑', label: 'Eliminación masiva',  color: 'var(--red)'   },
+  UNIT_DEST_ADD:     { icon: '🔗', label: 'Destino asignado',    color: 'var(--sky)'   },
+  UNIT_DEST_REMOVE:  { icon: '✂️',  label: 'Destino removido',    color: 'var(--amber)' },
+  DEST_CREATE:       { icon: '➕', label: 'Destino creado',      color: 'var(--green)' },
+  DEST_UPDATE:       { icon: '✏️',  label: 'Destino editado',     color: 'var(--sky)'   },
+  DEST_DELETE:       { icon: '🗑', label: 'Destino eliminado',   color: 'var(--red)'   },
+};
+
+function _auditLabel(action) {
+  const e = _AUDIT_LABELS[action];
+  return e ? `<span style="color:${e.color}">${e.icon} ${e.label}</span>`
+           : `<span style="color:var(--text2)">${action}</span>`;
+}
+
+function _auditDiff(before, after) {
+  if (!before && !after) return '';
+  if (!before) return '<span style="color:var(--green);font-size:11px">Nuevo registro</span>';
+  if (!after)  return '<span style="color:var(--red);font-size:11px">Eliminado</span>';
+  // Mostrar campos que cambiaron
+  const changes = [];
+  const allKeys = new Set([...Object.keys(before||{}), ...Object.keys(after||{})]);
+  allKeys.forEach(k => {
+    if (k === 'updated_at' || k === 'created_at') return;
+    const vb = JSON.stringify(before[k] ?? null);
+    const va = JSON.stringify(after[k]  ?? null);
+    if (vb !== va) {
+      changes.push(`<span style="color:var(--text3)">${k}:</span> ` +
+        `<span style="color:var(--red);text-decoration:line-through">${vb}</span> ` +
+        `<span style="color:var(--green)">→ ${va}</span>`);
+    }
+  });
+  return changes.length
+    ? changes.map(c => `<div style="font-size:11px;margin-top:2px">${c}</div>`).join('')
+    : '<span style="font-size:11px;color:var(--text3)">Sin cambios detectados</span>';
+}
+
+let _auditPage  = 0;
+let _auditTotal = 0;
+const _AUDIT_LIMIT = 50;
+
+async function openHistorial() {
   // Crear modal si no existe
+  let modal = document.getElementById('historial-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'historial-modal';
+    modal.style.cssText = `position:fixed;inset:0;z-index:9999;display:flex;
+      align-items:center;justify-content:center;
+      background:rgba(0,0,0,.6);backdrop-filter:blur(4px);`;
+    modal.onclick = e => { if (e.target === modal) modal.style.display = 'none'; };
+    document.body.appendChild(modal);
+  }
+
+  modal.style.display = 'flex';
+  _auditPage = 0;
+  _renderHistorialModal(modal);
+}
+
+function closeHistorial() {
+  const m = document.getElementById('historial-modal');
+  if (m) m.style.display = 'none';
+}
+
+async function _renderHistorialModal(modal) {
+  // Skeleton
+  modal.innerHTML = `
+    <div style="background:var(--bg1);border:1px solid var(--border);border-radius:12px;
+      width:min(900px,96vw);max-height:88vh;display:flex;flex-direction:column;
+      box-shadow:0 20px 60px rgba(0,0,0,.5)">
+      <div style="padding:18px 20px;border-bottom:1px solid var(--border);
+        display:flex;align-items:center;justify-content:space-between">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:20px">📋</span>
+          <div>
+            <div style="font-weight:700;font-size:15px">Historial de cambios</div>
+            <div id="hist-subtitle" style="font-size:12px;color:var(--text3)">Cargando…</div>
+          </div>
+        </div>
+        <button onclick="closeHistorial()" style="width:30px;height:30px;border-radius:6px;
+          border:1px solid var(--border);background:transparent;cursor:pointer;
+          color:var(--text2);font-size:18px;display:flex;align-items:center;justify-content:center">✕</button>
+      </div>
+
+      <!-- Filtros -->
+      <div style="padding:12px 20px;border-bottom:1px solid var(--border);
+        display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <input id="hist-search" class="input" placeholder="Buscar acción, usuario, objeto…"
+          oninput="_auditBuscar()" style="flex:1;min-width:200px;font-size:13px;height:34px"/>
+        <select id="hist-action" class="input" onchange="_auditBuscar()"
+          style="font-size:13px;height:34px;min-width:160px;cursor:pointer">
+          <option value="">Todas las acciones</option>
+          <option value="UNIT">Unidades</option>
+          <option value="DEST">Destinos</option>
+          <option value="CLIENTE">Clientes</option>
+          <option value="USER">Usuarios</option>
+        </select>
+        <select id="hist-user" class="input" onchange="_auditBuscar()"
+          style="font-size:13px;height:34px;min-width:130px;cursor:pointer">
+          <option value="">Todos los usuarios</option>
+        </select>
+        <button onclick="_auditLimpiar()" class="btn sm" style="height:34px">Limpiar</button>
+      </div>
+
+      <!-- Tabla -->
+      <div style="overflow-y:auto;flex:1" id="hist-body">
+        <div style="text-align:center;padding:40px;color:var(--text3)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2" style="animation:spin 1s linear infinite;vertical-align:middle;margin-right:8px">
+            <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+          </svg>Cargando historial…
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div style="padding:12px 20px;border-top:1px solid var(--border);
+        display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <span id="hist-count" style="font-size:12px;color:var(--text3)"></span>
+        <div style="display:flex;gap:6px">
+          <button id="hist-prev" class="btn sm" disabled onclick="_auditPrev()">← Anterior</button>
+          <button id="hist-next" class="btn sm" disabled onclick="_auditNext()">Siguiente →</button>
+          <button onclick="closeHistorial()" class="btn sm">Cerrar</button>
+        </div>
+      </div>
+    </div>`;
+
+  await _cargarAudit();
+}
+
+let _auditLastSearch = '';
+let _auditDebounce = null;
+
+function _auditBuscar() {
+  clearTimeout(_auditDebounce);
+  _auditDebounce = setTimeout(async () => {
+    _auditPage = 0;
+    await _cargarAudit();
+  }, 300);
+}
+
+function _auditLimpiar() {
+  document.getElementById('hist-search').value  = '';
+  document.getElementById('hist-action').value  = '';
+  document.getElementById('hist-user').value    = '';
+  _auditPage = 0;
+  _cargarAudit();
+}
+
+function _auditPrev() { if (_auditPage > 0) { _auditPage--; _cargarAudit(); } }
+function _auditNext() {
+  if ((_auditPage + 1) * _AUDIT_LIMIT < _auditTotal) { _auditPage++; _cargarAudit(); }
+}
+
+async function _cargarAudit() {
+  const body   = document.getElementById('hist-body');
+  const search = document.getElementById('hist-search')?.value.trim() || '';
+  const action = document.getElementById('hist-action')?.value || '';
+  const user   = document.getElementById('hist-user')?.value   || '';
+
+  const params = new URLSearchParams({
+    limit:  _AUDIT_LIMIT,
+    offset: _auditPage * _AUDIT_LIMIT,
+  });
+  if (search) params.set('search', search);
+  if (action) params.set('action', action);
+  if (user)   params.set('username', user);
+
+  try {
+    const data = await api.get('/admin/audit?' + params.toString());
+    _auditTotal = data.total || 0;
+
+    // Actualizar subtítulo
+    const sub = document.getElementById('hist-subtitle');
+    if (sub) sub.textContent = `${_auditTotal} evento${_auditTotal !== 1 ? 's' : ''} registrado${_auditTotal !== 1 ? 's' : ''}`;
+
+    // Actualizar contador
+    const cnt = document.getElementById('hist-count');
+    const from = _auditPage * _AUDIT_LIMIT + 1;
+    const to   = Math.min(from + _AUDIT_LIMIT - 1, _auditTotal);
+    if (cnt) cnt.textContent = _auditTotal ? `Mostrando ${from}–${to} de ${_auditTotal}` : 'Sin resultados';
+
+    // Paginación
+    const prev = document.getElementById('hist-prev');
+    const next = document.getElementById('hist-next');
+    if (prev) prev.disabled = _auditPage === 0;
+    if (next) next.disabled = to >= _auditTotal;
+
+    // Poblar selector de usuarios únicos (solo primera carga)
+    if (_auditPage === 0 && !search && !action && !user) {
+      const sel = document.getElementById('hist-user');
+      if (sel && sel.options.length === 1) {
+        const users = [...new Set(data.rows.map(r => r.username).filter(Boolean))].sort();
+        users.forEach(u => {
+          const o = document.createElement('option');
+          o.value = u; o.textContent = u;
+          sel.appendChild(o);
+        });
+      }
+    }
+
+    if (!data.rows.length) {
+      body.innerHTML = `<div style="text-align:center;padding:40px;color:var(--text3)">
+        <div style="font-size:32px;margin-bottom:8px">📭</div>
+        Sin eventos registrados para este filtro</div>`;
+      return;
+    }
+
+    body.innerHTML = `
+      <table style="width:100%;border-collapse:collapse">
+        <thead>
+          <tr style="background:var(--bg2);font-size:11px;text-transform:uppercase;
+            letter-spacing:.5px;color:var(--text3);position:sticky;top:0">
+            <th style="padding:8px 12px;text-align:left">Fecha</th>
+            <th style="padding:8px 12px;text-align:left">Usuario</th>
+            <th style="padding:8px 12px;text-align:left">Acción</th>
+            <th style="padding:8px 12px;text-align:left">Objeto</th>
+            <th style="padding:8px 12px;text-align:left">Cambios</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${data.rows.map(r => `
+            <tr style="border-bottom:1px solid var(--border);vertical-align:top"
+              onmouseenter="this.style.background='var(--bg2)'"
+              onmouseleave="this.style.background=''">
+              <td style="padding:8px 12px;white-space:nowrap;font-size:12px;color:var(--text2)">
+                ${new Date(r.created_at).toLocaleString('es-CL')}
+              </td>
+              <td style="padding:8px 12px;font-size:12px">
+                <div style="font-weight:600">${r.username || '—'}</div>
+                ${r.role ? `<div style="color:var(--text3);font-size:11px">${r.role}</div>` : ''}
+              </td>
+              <td style="padding:8px 12px">${_auditLabel(r.action)}</td>
+              <td style="padding:8px 12px;font-family:monospace;font-size:12px;color:var(--text2)">
+                ${r.target || '—'}
+              </td>
+              <td style="padding:8px 12px;max-width:300px">
+                ${_auditDiff(r.before_data, r.after_data)}
+              </td>
+            </tr>`).join('')}
+        </tbody>
+      </table>`;
+  } catch (e) {
+    if (body) body.innerHTML = `<div style="color:var(--red);padding:20px">
+      Error al cargar historial: ${e.message}</div>`;
+  }
+}
+
+function _abrirModalSinDestino(units) {
   let modal = document.getElementById('modal-sin-destino');
   if (!modal) {
     modal = document.createElement('div');
     modal.id = 'modal-sin-destino';
-    modal.style.cssText = `
-      position:fixed;inset:0;z-index:9999;
-      display:flex;align-items:center;justify-content:center;
+    modal.style.cssText = `position:fixed;inset:0;z-index:9999;display:flex;
+      align-items:center;justify-content:center;
       background:rgba(0,0,0,.6);backdrop-filter:blur(4px);`;
     document.body.appendChild(modal);
   }
-
+  modal.onclick = e => { if (e.target === modal) modal.style.display = 'none'; };
   const rows = units.map(u => `
     <tr style="border-bottom:1px solid var(--border)">
-      <td style="padding:8px 12px;font-weight:600;font-family:monospace">${u.plate || '—'}</td>
+      <td style="padding:8px 12px;font-weight:600;font-family:monospace">${u.plate||'—'}</td>
       <td style="padding:8px 12px;font-size:12px;color:var(--text2);font-family:monospace">${u.imei}</td>
-      <td style="padding:8px 12px;font-size:12px;color:var(--text2)">${u.name || '—'}</td>
+      <td style="padding:8px 12px;font-size:12px;color:var(--text2)">${u.name||'—'}</td>
       <td style="padding:8px 12px">
-        <button onclick="_irAPatenteBuscar('${u.plate||u.imei}')" class="btn sm primary">
-          Ver en patentes
-        </button>
+        <button onclick="_irAPatenteBuscar('${u.plate||u.imei}')" class="btn sm primary">Ver en patentes</button>
       </td>
     </tr>`).join('');
-
   modal.innerHTML = `
     <div style="background:var(--bg1);border:1px solid var(--border);border-radius:12px;
       width:min(700px,92vw);max-height:80vh;display:flex;flex-direction:column;
       box-shadow:0 20px 60px rgba(0,0,0,.5)">
-
-      <!-- Header -->
       <div style="display:flex;align-items:center;justify-content:space-between;
-        padding:18px 20px;border-bottom:1px solid var(--border)">
+        padding:16px 20px;border-bottom:1px solid var(--border)">
         <div style="display:flex;align-items:center;gap:10px">
-          <span style="width:32px;height:32px;border-radius:8px;background:rgba(239,68,68,.15);
-            display:flex;align-items:center;justify-content:center">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2">
-              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-              <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
-            </svg>
-          </span>
+          <span style="font-size:20px">⚠️</span>
           <div>
-            <div style="font-weight:700;font-size:15px">Unidades sin destino asignado</div>
+            <div style="font-weight:700;font-size:15px">Unidades sin destino</div>
             <div style="font-size:12px;color:var(--text3)">${units.length} unidad${units.length!==1?'es':''} requieren configuración</div>
           </div>
         </div>
         <button onclick="document.getElementById('modal-sin-destino').style.display='none'"
           style="width:30px;height:30px;border-radius:6px;border:1px solid var(--border);
-            background:transparent;cursor:pointer;color:var(--text2);font-size:18px;
-            display:flex;align-items:center;justify-content:center">✕</button>
+            background:transparent;cursor:pointer;color:var(--text2);font-size:16px;line-height:1">✕</button>
       </div>
-
-      <!-- Tabla -->
       <div style="overflow-y:auto;flex:1">
         <table style="width:100%;border-collapse:collapse">
-          <thead>
-            <tr style="background:var(--bg2);font-size:11px;text-transform:uppercase;
-              letter-spacing:.5px;color:var(--text3)">
-              <th style="padding:8px 12px;text-align:left;font-weight:600">Patente</th>
-              <th style="padding:8px 12px;text-align:left;font-weight:600">IMEI</th>
-              <th style="padding:8px 12px;text-align:left;font-weight:600">Nombre</th>
-              <th style="padding:8px 12px;text-align:left;font-weight:600">Acción</th>
-            </tr>
-          </thead>
+          <thead><tr style="background:var(--bg2);font-size:11px;text-transform:uppercase;
+            letter-spacing:.5px;color:var(--text3)">
+            <th style="padding:8px 12px;text-align:left;font-weight:600">Patente</th>
+            <th style="padding:8px 12px;text-align:left;font-weight:600">IMEI</th>
+            <th style="padding:8px 12px;text-align:left;font-weight:600">Nombre</th>
+            <th style="padding:8px 12px;text-align:left;font-weight:600">Acción</th>
+          </tr></thead>
           <tbody>${rows}</tbody>
         </table>
       </div>
-
-      <!-- Footer -->
-      <div style="padding:14px 20px;border-top:1px solid var(--border);
-        display:flex;justify-content:space-between;align-items:center;gap:10px">
-        <span style="font-size:12px;color:var(--text3)">
-          Asigna destinos desde Configuración → Organizaciones
-        </span>
+      <div style="padding:12px 20px;border-top:1px solid var(--border);
+        display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:12px;color:var(--text3)">Asigna destinos desde Configuración → Organizaciones</span>
         <div style="display:flex;gap:8px">
           <button onclick="_irAPatentesConFiltro();document.getElementById('modal-sin-destino').style.display='none'"
-            class="btn sm primary">
-            Ver todas en Patentes / IMEI
-          </button>
+            class="btn sm primary">Ver todas en Patentes / IMEI</button>
           <button onclick="document.getElementById('modal-sin-destino').style.display='none'"
-            class="btn sm">
-            Cerrar
-          </button>
+            class="btn sm">Cerrar</button>
         </div>
       </div>
     </div>`;
-
   modal.style.display = 'flex';
-  // Cerrar al hacer click fuera
-  modal.onclick = e => { if (e.target === modal) modal.style.display = 'none'; };
 }
 
 function _irAPatenteBuscar(plate) {
@@ -1416,12 +1644,12 @@ function _irAPatenteBuscar(plate) {
   }, 600);
 }
 
+let _pendingDestFilter = null;
+
 function _irAPatentesConFiltro() {
   _pendingDestFilter = '__sin_destino__';
   navigate('patentes');
 }
-
-let _pendingDestFilter = null;
 
 async function loadDashboard() {
   // Resetear KPIs a estado cargando
@@ -1452,8 +1680,7 @@ async function loadDashboard() {
         adminCard.style.display = '';
         adminCard.style.cursor  = 'pointer';
         adminCard.title         = 'Ver unidades sin destino';
-        // Pasar los datos directamente a la modal
-        adminCard.onclick = () => _abrirModalSinDestino(sinDestinos);
+        adminCard.onclick       = () => _abrirModalSinDestino(sinDestinos);
       }
       document.getElementById('kpi-errors').textContent = sinDestinos.length;
     }
