@@ -259,8 +259,8 @@ function _renderValNotFound(patente, imei) {
   document.getElementById('res-gps-badge').style.display   = 'none';
   document.getElementById('btn-export').style.display      = 'none';
   document.getElementById('btn-certificado').style.display = 'none';
-  document.getElementById('res-destinos-list').innerHTML   =
-    '<span style="font-size:13px;color:var(--text2)">Unidad no registrada en el sistema.</span>';
+  const _elDestNF = document.getElementById('res-destinos-list') || document.getElementById('res-destinos');
+  if (_elDestNF) _elDestNF.innerHTML = '<span style="font-size:13px;color:var(--text2)">Unidad no registrada en el sistema.</span>';
   document.getElementById('res-historial-tbody').innerHTML = '';
   document.getElementById('res-historial-table').style.display  = 'none';
   document.getElementById('res-historial-empty').style.display  = '';
@@ -289,7 +289,7 @@ function _renderValBasic(unit) {
   gpsBadge.style.display = '';
 
   // Destinos
-  const destList = document.getElementById('res-destinos-list');
+  const destList = document.getElementById('res-destinos-list') || document.getElementById('res-destinos');
   if (!(unit.destinations||[]).length) {
     destList.innerHTML = '<span style="font-size:13px;color:var(--text2)">Sin destinos asignados</span>';
   } else {
@@ -349,8 +349,10 @@ function _renderValGps({ status, responses }) {
   document.getElementById('res-ping').textContent     = '–';
   document.getElementById('res-speed').textContent    = '–';
   document.getElementById('res-ignition').textContent = '–';
-  _renderValDestinos(status, responses);
   }
+
+  // — Destinos: siempre al final, independiente del estado GPS —
+  _renderValDestinos(status, responses);
 
   // — Último dato de posición —
   const results = responses?.results || [];
