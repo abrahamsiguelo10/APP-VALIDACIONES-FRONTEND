@@ -640,24 +640,10 @@ async function renderAdminTable() {
   try {
     _adminUnits = await api.get('/units');
     _paintAdminTable(_adminUnits);
-    _initAdminFilters();
   } catch (_) {
     tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--red)">
       Error al cargar unidades.</td></tr>`;
   }
-}
-
-/* ── Filtros tabla patentes ──────────────────────────────────── */
-function _initAdminFilters() {
-  // Poblar el selector de destinos con los destinos únicos de las unidades cargadas
-  const destSel = document.getElementById('admin-filter-dest');
-  if (!destSel || !_adminUnits) return;
-  const allDests = new Set();
-  _adminUnits.forEach(u => (u.destinations||[]).forEach(d => allDests.add(d.name)));
-  const current = destSel.value;
-  destSel.innerHTML = '<option value="">Todos los destinos</option>' +
-    [...allDests].sort().map(d => `<option value="${d}">${d}</option>`).join('');
-  if (current) destSel.value = current;
 }
 
 function _paintAdminTable(units) {
@@ -721,28 +707,18 @@ function _paintAdminTable(units) {
 }
 
 function filterAdminTable() {
-  if (!_adminUnits) return;
-  const q      = (document.getElementById('admin-search')?.value      || '').toLowerCase().trim();
-  const status = (document.getElementById('admin-filter-status')?.value || '');
-  const dest   = (document.getElementById('admin-filter-dest')?.value   || '').toLowerCase();
-
-  const filtered = _adminUnits.filter(u => {
-    // Texto libre — patente, IMEI, nombre, RUT
-    if (q) {
-      const hay = [u.plate, u.imei, u.name, u.rut].filter(Boolean).join(' ').toLowerCase();
-      if (!hay.includes(q)) return false;
-    }
-    // Estado activo/inactivo
-    if (status === 'active'   && !u.enabled)  return false;
-    if (status === 'inactive' &&  u.enabled)  return false;
-    // Destino asignado
-    if (dest) {
-      const destNames = (u.destinations || []).map(d => d.name.toLowerCase());
-      if (!destNames.some(d => d.includes(dest))) return false;
-    }
-    return true;
-  });
-
+  const q = document.getElementById('admin-search')?.value.toLowerCase().trim() ?? '';
+  if (!q) {
+    _paintAdminTable(_adminUnits);
+    return;
+  }
+  const filtered = _adminUnits.filter(u =>
+    (u.plate  || '').toLowerCase().includes(q) ||
+    (u.imei   || '').toLowerCase().includes(q) ||
+    (u.name   || '').toLowerCase().includes(q) ||
+    (u.rut    || '').toLowerCase().includes(q) ||
+    (u.destinations || []).some(d => d.name.toLowerCase().includes(q))
+  );
   _paintAdminTable(filtered);
 }
 
@@ -1336,9 +1312,23 @@ async function loadDashboard() {
     const sinDestinos = activeUnits.filter(u => !(u.destinations?.some(d => d.enabled)));
     const adminCard = document.getElementById('kpi-admin-card');
     if (state?.user?.role === 'admin') {
-      if (adminCard) adminCard.style.display = '';
+      if (adminCard) {
+        adminCard.style.display = '';
+        // Hacer la tarjeta clickeable — navega a patentes filtrando sin destinos
+        adminCard.style.cursor = 'pointer';
+        adminCard.title = 'Ver unidades sin destino';
+        adminCard.onclick = () => {
+          navigate('patentes');
+          setTimeout(() => {
+            const sel = document.getElementById('admin-filter-dest');
+            if (sel) { sel.value = '__sin_destino__'; filterAdminTable(); }
+          }, 400);
+        };
+      }
       document.getElementById('kpi-errors').textContent = sinDestinos.length;
     }
+    // Guardar sinDestinos para usar en actividad
+    window._dashSinDestinos = sinDestinos;
 
     // ── KPI: Consultas hoy — no hay endpoint, mostramos unidades con destinos ──
     document.getElementById('kpi-queries').textContent = activeUnits.length - sinDestinos.length;
@@ -1381,7 +1371,18 @@ function _renderDashboardActivity(units) {
     items.push({ color: 'var(--sky)', text: `${totalDests} integración${totalDests !== 1 ? 'es' : ''} configurada${totalDests !== 1 ? 's' : ''}`, sub: 'Destinos activos' });
   }
   if (sinDest.length > 0) {
-    items.push({ color: 'var(--amber)', text: `${sinDest.length} unidad${sinDest.length !== 1 ? 'es' : ''} sin destino asignado`, sub: 'Requieren configuración' });
+    items.push({
+      color: 'var(--amber)',
+      text: `${sinDest.length} unidad${sinDest.length !== 1 ? 'es' : ''} sin destino asignado`,
+      sub: 'Requieren configuración — clic para ver',
+      onclick: () => {
+        navigate('patentes');
+        setTimeout(() => {
+          const sel = document.getElementById('admin-filter-dest');
+          if (sel) { sel.value = '__sin_destino__'; filterAdminTable(); }
+        }, 400);
+      }
+    });
   }
   if (conDest.length > 0) {
     items.push({ color: 'var(--green)', text: `${conDest.length} unidad${conDest.length !== 1 ? 'es' : ''} con integración activa`, sub: 'Enviando a destinos' });
@@ -1390,14 +1391,25 @@ function _renderDashboardActivity(units) {
     items.push({ color: 'var(--text3)', text: 'Sin unidades registradas aún', sub: 'Agrega unidades en Patentes / IMEI' });
   }
 
-  container.innerHTML = items.map(item => `
-    <div class="activity-item">
+    container.innerHTML = '';
+  items.forEach(item => {
+    const div = document.createElement('div');
+    div.className = 'activity-item';
+    if (item.onclick) {
+      div.style.cursor = 'pointer';
+      div.style.transition = 'opacity .15s';
+      div.addEventListener('mouseenter', () => div.style.opacity = '.7');
+      div.addEventListener('mouseleave', () => div.style.opacity = '1');
+      div.addEventListener('click', item.onclick);
+    }
+    div.innerHTML = `
       <div class="activity-dot" style="background:${item.color}"></div>
       <div>
         <p>${item.text}</p>
         <small>${item.sub}</small>
-      </div>
-    </div>`).join('');
+      </div>`;
+    container.appendChild(div);
+  });
 }
 
 /* ══════════════════════════════════════════════════════════════
