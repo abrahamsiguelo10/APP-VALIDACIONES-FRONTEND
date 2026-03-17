@@ -637,7 +637,7 @@
         <div class="val-tab-panel" id="val-panel-destinos">
           <div class="card">
             <div class="card-header"><h3>Integraciones / Destinos</h3></div>
-              <div id="res-destinos"></div>
+              <div class="card-body" id="res-destinos" style="display:flex;flex-wrap:wrap;gap:8px">
                 <!-- populated by JS -->
               </div>
             </div>
@@ -726,6 +726,18 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                     <input id="admin-search" placeholder="Buscar patente, IMEI, cliente..." oninput="filterAdminTable()" />
                   </div>
+                  <select id="admin-filter-status" class="input"
+                    onchange="filterAdminTable()"
+                    style="font-size:13px;padding:6px 10px;height:36px;min-width:130px;cursor:pointer">
+                    <option value="">Todos los estados</option>
+                    <option value="active">Activos</option>
+                    <option value="inactive">Inactivos</option>
+                  </select>
+                  <select id="admin-filter-dest" class="input"
+                    onchange="filterAdminTable()"
+                    style="font-size:13px;padding:6px 10px;height:36px;min-width:150px;cursor:pointer">
+                    <option value="">Todos los destinos</option>
+                  </select>
                   <div class="toolbar-right">
                     <button class="btn sm danger" id="btn-delete-selected" disabled onclick="deleteSelected()">
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
