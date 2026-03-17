@@ -453,6 +453,14 @@
             <h2 id="welcome-msg">Bienvenido</h2>
             <p>Panel de control · Síguelo</p>
           </div>
+          <div style="margin-left:auto">
+            <button class="btn sm" onclick="openHistorial()" style="gap:6px" title="Historial de cambios">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+              </svg>
+              Historial
+            </button>
+          </div>
         </div>
 
         <div class="stat-grid">
@@ -558,6 +566,14 @@
           <div>
             <h1>Validador de Unidades</h1>
             <p>Consulta patente o IMEI para ver estado GPS e integraciones</p>
+          </div>
+          <div class="page-actions">
+            <button class="btn sm" onclick="openHistorial()" style="gap:6px" title="Historial de cambios">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+              </svg>
+              Historial
+            </button>
           </div>
         </div>
 
@@ -701,6 +717,12 @@
             <p>Gestiona el registro de unidades, importa desde Excel y edita destinos</p>
           </div>
           <div class="page-actions">
+            <button class="btn sm" onclick="openHistorial()" style="gap:6px" title="Historial de cambios">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+              </svg>
+              Historial
+            </button>
             <button class="btn" onclick="exportExcel()">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               Exportar Excel
@@ -726,6 +748,19 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                     <input id="admin-search" placeholder="Buscar patente, IMEI, cliente..." oninput="filterAdminTable()" />
                   </div>
+                  <select id="admin-filter-status" class="input"
+                    onchange="filterAdminTable()"
+                    style="font-size:13px;padding:6px 10px;height:36px;min-width:130px;cursor:pointer">
+                    <option value="">Todos los estados</option>
+                    <option value="active">Activos</option>
+                    <option value="inactive">Inactivos</option>
+                  </select>
+                  <select id="admin-filter-dest" class="input"
+                    onchange="filterAdminTable()"
+                    style="font-size:13px;padding:6px 10px;height:36px;min-width:160px;cursor:pointer">
+                    <option value="">Todos los destinos</option>
+                    <option value="__sin_destino__">⚠ Sin destino asignado</option>
+                  </select>
                   <select id="admin-filter-status" class="input"
                     onchange="filterAdminTable()"
                     style="font-size:13px;padding:6px 10px;height:36px;min-width:130px;cursor:pointer">
@@ -843,6 +878,14 @@
       <div class="view" id="view-settings">
         <div class="page-header">
           <div><h1>Configuración</h1><p>Ajustes de la plataforma, usuarios y organizaciones</p></div>
+          <div class="page-actions">
+            <button class="btn sm" onclick="openHistorial()" style="gap:6px" title="Historial de cambios">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+              </svg>
+              Historial
+            </button>
+          </div>
         </div>
         <div style="display:flex;gap:2px;margin-bottom:24px;border-bottom:1px solid var(--border)">
           
