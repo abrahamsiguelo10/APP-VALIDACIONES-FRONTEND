@@ -259,7 +259,7 @@ function _renderValNotFound(patente, imei) {
   document.getElementById('res-gps-badge').style.display   = 'none';
   document.getElementById('btn-export').style.display      = 'none';
   document.getElementById('btn-certificado').style.display = 'none';
-    const _dlistNotFound = document.getElementById('res-destinos-list') || document.getElementById('res-destinos'); if(_dlistNotFound) _dlistNotFound.innerHTML =
+  document.getElementById('res-destinos-list').innerHTML   =
     '<span style="font-size:13px;color:var(--text2)">Unidad no registrada en el sistema.</span>';
   document.getElementById('res-historial-tbody').innerHTML = '';
   document.getElementById('res-historial-table').style.display  = 'none';
@@ -289,7 +289,7 @@ function _renderValBasic(unit) {
   gpsBadge.style.display = '';
 
   // Destinos
-    const destList = document.getElementById('res-destinos-list') || document.getElementById('res-destinos');
+  const destList = document.getElementById('res-destinos-list');
   if (!(unit.destinations||[]).length) {
     destList.innerHTML = '<span style="font-size:13px;color:var(--text2)">Sin destinos asignados</span>';
   } else {
@@ -349,9 +349,9 @@ function _renderValGps({ status, responses }) {
   document.getElementById('res-ping').textContent     = '–';
   document.getElementById('res-speed').textContent    = '–';
   document.getElementById('res-ignition').textContent = '–';
- 
+  _renderValDestinos(status, responses);
   }
-   _renderValDestinos(status, responses);
+
   // — Último dato de posición —
   const results = responses?.results || [];
   const lastWithTx = results.find(r => r.tx?.lat && r.tx?.lon);
@@ -640,10 +640,24 @@ async function renderAdminTable() {
   try {
     _adminUnits = await api.get('/units');
     _paintAdminTable(_adminUnits);
+    _initAdminFilters();
   } catch (_) {
     tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--red)">
       Error al cargar unidades.</td></tr>`;
   }
+}
+
+/* ── Filtros tabla patentes ──────────────────────────────────── */
+function _initAdminFilters() {
+  // Poblar el selector de destinos con los destinos únicos de las unidades cargadas
+  const destSel = document.getElementById('admin-filter-dest');
+  if (!destSel || !_adminUnits) return;
+  const allDests = new Set();
+  _adminUnits.forEach(u => (u.destinations||[]).forEach(d => allDests.add(d.name)));
+  const current = destSel.value;
+  destSel.innerHTML = '<option value="">Todos los destinos</option>' +
+    [...allDests].sort().map(d => `<option value="${d}">${d}</option>`).join('');
+  if (current) destSel.value = current;
 }
 
 function _paintAdminTable(units) {
@@ -707,18 +721,28 @@ function _paintAdminTable(units) {
 }
 
 function filterAdminTable() {
-  const q = document.getElementById('admin-search')?.value.toLowerCase().trim() ?? '';
-  if (!q) {
-    _paintAdminTable(_adminUnits);
-    return;
-  }
-  const filtered = _adminUnits.filter(u =>
-    (u.plate  || '').toLowerCase().includes(q) ||
-    (u.imei   || '').toLowerCase().includes(q) ||
-    (u.name   || '').toLowerCase().includes(q) ||
-    (u.rut    || '').toLowerCase().includes(q) ||
-    (u.destinations || []).some(d => d.name.toLowerCase().includes(q))
-  );
+  if (!_adminUnits) return;
+  const q      = (document.getElementById('admin-search')?.value      || '').toLowerCase().trim();
+  const status = (document.getElementById('admin-filter-status')?.value || '');
+  const dest   = (document.getElementById('admin-filter-dest')?.value   || '').toLowerCase();
+
+  const filtered = _adminUnits.filter(u => {
+    // Texto libre — patente, IMEI, nombre, RUT
+    if (q) {
+      const hay = [u.plate, u.imei, u.name, u.rut].filter(Boolean).join(' ').toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    // Estado activo/inactivo
+    if (status === 'active'   && !u.enabled)  return false;
+    if (status === 'inactive' &&  u.enabled)  return false;
+    // Destino asignado
+    if (dest) {
+      const destNames = (u.destinations || []).map(d => d.name.toLowerCase());
+      if (!destNames.some(d => d.includes(dest))) return false;
+    }
+    return true;
+  });
+
   _paintAdminTable(filtered);
 }
 
@@ -1104,14 +1128,7 @@ async function importExcel() {
     if (unitsWithDests.length) {
       btn.textContent = 'Preparando organizaciones…';
 
-      // Recargar orgs desde el servidor — estado fresco para evitar duplicados
-      // aunque el usuario importe varias veces en la misma sesión
-      try {
-        const freshDests = await api.get('/destinations');
-        freshDests.forEach(d => { ORGS[d.id] = destToOrg(d); });
-      } catch (_) {}
-
-      // Mapa nombre (lowercase) → id con las orgs actualizadas
+      // Mapa nombre → id con las orgs existentes
       const orgByName = {};
       Object.entries(ORGS).forEach(([id, org]) => {
         orgByName[org.name.toLowerCase().trim()] = id;
@@ -1122,10 +1139,10 @@ async function importExcel() {
         unitsWithDests.flatMap(u => u.destinos).map(d => d.trim()).filter(Boolean)
       )];
 
-      // Crear secuencialmente las que NO existen (comparación insensible a mayúsculas)
+      // Crear secuencialmente las que no existen (evita duplicados por paralelismo)
       for (const destNombre of allDestNames) {
         const key = destNombre.toLowerCase().trim();
-        if (orgByName[key]) continue; // ya existe — no crear duplicado
+        if (orgByName[key]) continue; // ya existe, saltar
 
         try {
           const newId   = 'org-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
@@ -1138,13 +1155,7 @@ async function importExcel() {
           });
           ORGS[newId] = destToOrg(newDest);
           orgByName[key] = newId;
-        } catch (err) {
-          // Si el backend rechazó por nombre duplicado, usar la existente
-          const existing = Object.entries(ORGS).find(([,o]) =>
-            o.name.toLowerCase().trim() === key
-          );
-          if (existing) orgByName[key] = existing[0];
-        }
+        } catch (_) {}
       }
 
       // ── PASO 3: Asignar destinos en paralelo (orgs ya existen todas) ──
