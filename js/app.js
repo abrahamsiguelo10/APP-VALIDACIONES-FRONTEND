@@ -640,6 +640,7 @@ async function renderAdminTable() {
   try {
     _adminUnits = await api.get('/units');
     _paintAdminTable(_adminUnits);
+    _initAdminFilters();
   } catch (_) {
     tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--red)">
       Error al cargar unidades.</td></tr>`;
@@ -706,19 +707,42 @@ function _paintAdminTable(units) {
   });
 }
 
+/* ── Filtros tabla patentes ─────────────────────────────── */
+function _initAdminFilters() {
+  const destSel = document.getElementById('admin-filter-dest');
+  if (!destSel || !_adminUnits) return;
+  const allDests = new Set();
+  _adminUnits.forEach(u => (u.destinations||[]).forEach(d => allDests.add(d.name)));
+  const current = destSel.value;
+  destSel.innerHTML =
+    '<option value="">Todos los destinos</option>' +
+    '<option value="__sin_destino__">⚠ Sin destino asignado</option>' +
+    [...allDests].sort().map(d => `<option value="${d}">${d}</option>`).join('');
+  if (current) destSel.value = current;
+}
+
 function filterAdminTable() {
-  const q = document.getElementById('admin-search')?.value.toLowerCase().trim() ?? '';
-  if (!q) {
-    _paintAdminTable(_adminUnits);
-    return;
-  }
-  const filtered = _adminUnits.filter(u =>
-    (u.plate  || '').toLowerCase().includes(q) ||
-    (u.imei   || '').toLowerCase().includes(q) ||
-    (u.name   || '').toLowerCase().includes(q) ||
-    (u.rut    || '').toLowerCase().includes(q) ||
-    (u.destinations || []).some(d => d.name.toLowerCase().includes(q))
-  );
+  if (!_adminUnits) return;
+  const q      = (document.getElementById('admin-search')?.value       || '').toLowerCase().trim();
+  const status = (document.getElementById('admin-filter-status')?.value || '');
+  const dest   = (document.getElementById('admin-filter-dest')?.value   || '');
+
+  const filtered = _adminUnits.filter(u => {
+    if (q) {
+      const hay = [u.plate, u.imei, u.name, u.rut].filter(Boolean).join(' ').toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    if (status === 'active'   && !u.enabled) return false;
+    if (status === 'inactive' &&  u.enabled) return false;
+    if (dest === '__sin_destino__') {
+      if ((u.destinations || []).some(d => d.enabled)) return false;
+    } else if (dest) {
+      const names = (u.destinations || []).map(d => d.name.toLowerCase());
+      if (!names.some(n => n.includes(dest.toLowerCase()))) return false;
+    }
+    return true;
+  });
+
   _paintAdminTable(filtered);
 }
 
@@ -1313,22 +1337,19 @@ async function loadDashboard() {
     const adminCard = document.getElementById('kpi-admin-card');
     if (state?.user?.role === 'admin') {
       if (adminCard) {
-        adminCard.style.display = '';
-        // Hacer la tarjeta clickeable — navega a patentes filtrando sin destinos
-        adminCard.style.cursor = 'pointer';
-        adminCard.title = 'Ver unidades sin destino';
-        adminCard.onclick = () => {
+        adminCard.style.display  = '';
+        adminCard.style.cursor   = 'pointer';
+        adminCard.title          = 'Ver unidades sin destino';
+        adminCard.onclick        = () => {
           navigate('patentes');
           setTimeout(() => {
             const sel = document.getElementById('admin-filter-dest');
             if (sel) { sel.value = '__sin_destino__'; filterAdminTable(); }
-          }, 400);
+          }, 500);
         };
       }
       document.getElementById('kpi-errors').textContent = sinDestinos.length;
     }
-    // Guardar sinDestinos para usar en actividad
-    window._dashSinDestinos = sinDestinos;
 
     // ── KPI: Consultas hoy — no hay endpoint, mostramos unidades con destinos ──
     document.getElementById('kpi-queries').textContent = activeUnits.length - sinDestinos.length;
@@ -1380,7 +1401,7 @@ function _renderDashboardActivity(units) {
         setTimeout(() => {
           const sel = document.getElementById('admin-filter-dest');
           if (sel) { sel.value = '__sin_destino__'; filterAdminTable(); }
-        }, 400);
+        }, 500);
       }
     });
   }
@@ -1397,17 +1418,13 @@ function _renderDashboardActivity(units) {
     div.className = 'activity-item';
     if (item.onclick) {
       div.style.cursor = 'pointer';
-      div.style.transition = 'opacity .15s';
       div.addEventListener('mouseenter', () => div.style.opacity = '.7');
       div.addEventListener('mouseleave', () => div.style.opacity = '1');
       div.addEventListener('click', item.onclick);
     }
     div.innerHTML = `
       <div class="activity-dot" style="background:${item.color}"></div>
-      <div>
-        <p>${item.text}</p>
-        <small>${item.sub}</small>
-      </div>`;
+      <div><p>${item.text}</p><small>${item.sub}</small></div>`;
     container.appendChild(div);
   });
 }
