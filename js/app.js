@@ -707,7 +707,6 @@ function _paintAdminTable(units) {
   });
 }
 
-/* ── Filtros tabla patentes ─────────────────────────────── */
 function _initAdminFilters() {
   const destSel = document.getElementById('admin-filter-dest');
   if (!destSel || !_adminUnits) return;
@@ -742,7 +741,6 @@ function filterAdminTable() {
     }
     return true;
   });
-
   _paintAdminTable(filtered);
 }
 
@@ -1311,6 +1309,22 @@ async function deleteSelected() {
 /* ══════════════════════════════════════════════════════════════
    DASHBOARD
 ══════════════════════════════════════════════════════════════ */
+// Navega a patentes y activa el filtro sin destinos cuando los datos estén listos
+function _irAPatentesConFiltro() {
+  navigate('patentes');
+  let intentos = 0;
+  const poll = setInterval(() => {
+    intentos++;
+    const sel = document.getElementById('admin-filter-dest');
+    if (sel && window._adminUnits?.length) {
+      sel.value = '__sin_destino__';
+      filterAdminTable();
+      clearInterval(poll);
+    }
+    if (intentos > 30) clearInterval(poll);
+  }, 100);
+}
+
 async function loadDashboard() {
   // Resetear KPIs a estado cargando
   ['kpi-units','kpi-active','kpi-queries','kpi-errors'].forEach(id => {
@@ -1337,16 +1351,10 @@ async function loadDashboard() {
     const adminCard = document.getElementById('kpi-admin-card');
     if (state?.user?.role === 'admin') {
       if (adminCard) {
-        adminCard.style.display  = '';
-        adminCard.style.cursor   = 'pointer';
-        adminCard.title          = 'Ver unidades sin destino';
-        adminCard.onclick        = () => {
-          navigate('patentes');
-          setTimeout(() => {
-            const sel = document.getElementById('admin-filter-dest');
-            if (sel) { sel.value = '__sin_destino__'; filterAdminTable(); }
-          }, 500);
-        };
+        adminCard.style.display = '';
+        adminCard.style.cursor  = 'pointer';
+        adminCard.title         = 'Ver unidades sin destino';
+        adminCard.onclick       = () => _irAPatentesConFiltro();
       }
       document.getElementById('kpi-errors').textContent = sinDestinos.length;
     }
@@ -1396,13 +1404,7 @@ function _renderDashboardActivity(units) {
       color: 'var(--amber)',
       text: `${sinDest.length} unidad${sinDest.length !== 1 ? 'es' : ''} sin destino asignado`,
       sub: 'Requieren configuración — clic para ver',
-      onclick: () => {
-        navigate('patentes');
-        setTimeout(() => {
-          const sel = document.getElementById('admin-filter-dest');
-          if (sel) { sel.value = '__sin_destino__'; filterAdminTable(); }
-        }, 500);
-      }
+      onclick: () => _irAPatentesConFiltro()
     });
   }
   if (conDest.length > 0) {
