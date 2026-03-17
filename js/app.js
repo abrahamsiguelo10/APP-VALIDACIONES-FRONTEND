@@ -641,7 +641,6 @@ async function renderAdminTable() {
     _adminUnits = await api.get('/units');
     _paintAdminTable(_adminUnits);
     _initAdminFilters();
-    // Aplicar filtro pendiente si viene del dashboard
     if (_pendingDestFilter) {
       const sel = document.getElementById('admin-filter-dest');
       if (sel) sel.value = _pendingDestFilter;
@@ -1315,13 +1314,114 @@ async function deleteSelected() {
 /* ══════════════════════════════════════════════════════════════
    DASHBOARD
 ══════════════════════════════════════════════════════════════ */
-// Flag que renderAdminTable revisa al terminar de cargar
-let _pendingDestFilter = null;
+// Modal de unidades sin destino
+function _abrirModalSinDestino(units) {
+  // Crear modal si no existe
+  let modal = document.getElementById('modal-sin-destino');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'modal-sin-destino';
+    modal.style.cssText = `
+      position:fixed;inset:0;z-index:9999;
+      display:flex;align-items:center;justify-content:center;
+      background:rgba(0,0,0,.6);backdrop-filter:blur(4px);`;
+    document.body.appendChild(modal);
+  }
+
+  const rows = units.map(u => `
+    <tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:8px 12px;font-weight:600;font-family:monospace">${u.plate || '—'}</td>
+      <td style="padding:8px 12px;font-size:12px;color:var(--text2);font-family:monospace">${u.imei}</td>
+      <td style="padding:8px 12px;font-size:12px;color:var(--text2)">${u.name || '—'}</td>
+      <td style="padding:8px 12px">
+        <button onclick="_irAPatenteBuscar('${u.plate||u.imei}')" class="btn sm primary">
+          Ver en patentes
+        </button>
+      </td>
+    </tr>`).join('');
+
+  modal.innerHTML = `
+    <div style="background:var(--bg1);border:1px solid var(--border);border-radius:12px;
+      width:min(700px,92vw);max-height:80vh;display:flex;flex-direction:column;
+      box-shadow:0 20px 60px rgba(0,0,0,.5)">
+
+      <!-- Header -->
+      <div style="display:flex;align-items:center;justify-content:space-between;
+        padding:18px 20px;border-bottom:1px solid var(--border)">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="width:32px;height:32px;border-radius:8px;background:rgba(239,68,68,.15);
+            display:flex;align-items:center;justify-content:center">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+          </span>
+          <div>
+            <div style="font-weight:700;font-size:15px">Unidades sin destino asignado</div>
+            <div style="font-size:12px;color:var(--text3)">${units.length} unidad${units.length!==1?'es':''} requieren configuración</div>
+          </div>
+        </div>
+        <button onclick="document.getElementById('modal-sin-destino').style.display='none'"
+          style="width:30px;height:30px;border-radius:6px;border:1px solid var(--border);
+            background:transparent;cursor:pointer;color:var(--text2);font-size:18px;
+            display:flex;align-items:center;justify-content:center">✕</button>
+      </div>
+
+      <!-- Tabla -->
+      <div style="overflow-y:auto;flex:1">
+        <table style="width:100%;border-collapse:collapse">
+          <thead>
+            <tr style="background:var(--bg2);font-size:11px;text-transform:uppercase;
+              letter-spacing:.5px;color:var(--text3)">
+              <th style="padding:8px 12px;text-align:left;font-weight:600">Patente</th>
+              <th style="padding:8px 12px;text-align:left;font-weight:600">IMEI</th>
+              <th style="padding:8px 12px;text-align:left;font-weight:600">Nombre</th>
+              <th style="padding:8px 12px;text-align:left;font-weight:600">Acción</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+
+      <!-- Footer -->
+      <div style="padding:14px 20px;border-top:1px solid var(--border);
+        display:flex;justify-content:space-between;align-items:center;gap:10px">
+        <span style="font-size:12px;color:var(--text3)">
+          Asigna destinos desde Configuración → Organizaciones
+        </span>
+        <div style="display:flex;gap:8px">
+          <button onclick="_irAPatentesConFiltro();document.getElementById('modal-sin-destino').style.display='none'"
+            class="btn sm primary">
+            Ver todas en Patentes / IMEI
+          </button>
+          <button onclick="document.getElementById('modal-sin-destino').style.display='none'"
+            class="btn sm">
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>`;
+
+  modal.style.display = 'flex';
+  // Cerrar al hacer click fuera
+  modal.onclick = e => { if (e.target === modal) modal.style.display = 'none'; };
+}
+
+function _irAPatenteBuscar(plate) {
+  document.getElementById('modal-sin-destino').style.display = 'none';
+  navigate('patentes');
+  setTimeout(() => {
+    const inp = document.getElementById('admin-search');
+    if (inp) { inp.value = plate; filterAdminTable(); }
+  }, 600);
+}
 
 function _irAPatentesConFiltro() {
   _pendingDestFilter = '__sin_destino__';
   navigate('patentes');
 }
+
+let _pendingDestFilter = null;
 
 async function loadDashboard() {
   // Resetear KPIs a estado cargando
@@ -1352,7 +1452,8 @@ async function loadDashboard() {
         adminCard.style.display = '';
         adminCard.style.cursor  = 'pointer';
         adminCard.title         = 'Ver unidades sin destino';
-        adminCard.onclick       = () => _irAPatentesConFiltro();
+        // Pasar los datos directamente a la modal
+        adminCard.onclick = () => _abrirModalSinDestino(sinDestinos);
       }
       document.getElementById('kpi-errors').textContent = sinDestinos.length;
     }
@@ -1402,7 +1503,7 @@ function _renderDashboardActivity(units) {
       color: 'var(--amber)',
       text: `${sinDest.length} unidad${sinDest.length !== 1 ? 'es' : ''} sin destino asignado`,
       sub: 'Requieren configuración — clic para ver',
-      onclick: () => _irAPatentesConFiltro()
+      onclick: () => _abrirModalSinDestino(sinDest)
     });
   }
   if (conDest.length > 0) {
