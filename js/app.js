@@ -1308,19 +1308,24 @@ async function deleteSelected() {
 /* ══════════════════════════════════════════════════════════════
    DASHBOARD
 ══════════════════════════════════════════════════════════════ */
-function _irAPatentesConFiltro() {
+// Navega a patentes y aplica el filtro "sin destinos"
+// Carga los datos si aún no están disponibles
+async function _irAPatentesConFiltro() {
   navigate('patentes');
-  let intentos = 0;
-  const poll = setInterval(() => {
-    intentos++;
-    const sel = document.getElementById('admin-filter-dest');
-    if (sel && _adminUnits && _adminUnits.length > 0) {
-      sel.value = '__sin_destino__';
-      filterAdminTable();
-      clearInterval(poll);
-    }
-    if (intentos > 40) clearInterval(poll); // máximo 4s
-  }, 100);
+  // Esperar que el DOM de patentes esté listo
+  await new Promise(r => setTimeout(r, 300));
+  // Si _adminUnits no tiene datos, cargarlos ahora
+  if (!_adminUnits || _adminUnits.length === 0) {
+    try { _adminUnits = await api.get('/units'); } catch(_) {}
+  }
+  _paintAdminTable(_adminUnits);
+  _initAdminFilters();
+  // Aplicar el filtro
+  const sel = document.getElementById('admin-filter-dest');
+  if (sel) {
+    sel.value = '__sin_destino__';
+    filterAdminTable();
+  }
 }
 
 async function loadDashboard() {
