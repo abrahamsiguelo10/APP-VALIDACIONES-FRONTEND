@@ -641,6 +641,13 @@ async function renderAdminTable() {
     _adminUnits = await api.get('/units');
     _paintAdminTable(_adminUnits);
     _initAdminFilters();
+    // Aplicar filtro pendiente si viene del dashboard
+    if (_pendingDestFilter) {
+      const sel = document.getElementById('admin-filter-dest');
+      if (sel) sel.value = _pendingDestFilter;
+      _pendingDestFilter = null;
+      filterAdminTable();
+    }
   } catch (_) {
     tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--red)">
       Error al cargar unidades.</td></tr>`;
@@ -1308,24 +1315,12 @@ async function deleteSelected() {
 /* ══════════════════════════════════════════════════════════════
    DASHBOARD
 ══════════════════════════════════════════════════════════════ */
-// Navega a patentes y aplica el filtro "sin destinos"
-// Carga los datos si aún no están disponibles
-async function _irAPatentesConFiltro() {
+// Flag que renderAdminTable revisa al terminar de cargar
+let _pendingDestFilter = null;
+
+function _irAPatentesConFiltro() {
+  _pendingDestFilter = '__sin_destino__';
   navigate('patentes');
-  // Esperar que el DOM de patentes esté listo
-  await new Promise(r => setTimeout(r, 300));
-  // Si _adminUnits no tiene datos, cargarlos ahora
-  if (!_adminUnits || _adminUnits.length === 0) {
-    try { _adminUnits = await api.get('/units'); } catch(_) {}
-  }
-  _paintAdminTable(_adminUnits);
-  _initAdminFilters();
-  // Aplicar el filtro
-  const sel = document.getElementById('admin-filter-dest');
-  if (sel) {
-    sel.value = '__sin_destino__';
-    filterAdminTable();
-  }
 }
 
 async function loadDashboard() {
