@@ -708,16 +708,16 @@ function _paintAdminTable(units) {
 }
 
 function _initAdminFilters() {
-  const destSel = document.getElementById('admin-filter-dest');
-  if (!destSel || !_adminUnits) return;
-  const allDests = new Set();
-  _adminUnits.forEach(u => (u.destinations||[]).forEach(d => allDests.add(d.name)));
-  const current = destSel.value;
-  destSel.innerHTML =
+  const sel = document.getElementById('admin-filter-dest');
+  if (!sel || !_adminUnits) return;
+  const dests = new Set();
+  _adminUnits.forEach(u => (u.destinations||[]).forEach(d => dests.add(d.name)));
+  const cur = sel.value;
+  sel.innerHTML =
     '<option value="">Todos los destinos</option>' +
     '<option value="__sin_destino__">⚠ Sin destino asignado</option>' +
-    [...allDests].sort().map(d => `<option value="${d}">${d}</option>`).join('');
-  if (current) destSel.value = current;
+    [...dests].sort().map(d => `<option value="${d}">${d}</option>`).join('');
+  if (cur) sel.value = cur;
 }
 
 function filterAdminTable() {
@@ -725,7 +725,6 @@ function filterAdminTable() {
   const q      = (document.getElementById('admin-search')?.value       || '').toLowerCase().trim();
   const status = (document.getElementById('admin-filter-status')?.value || '');
   const dest   = (document.getElementById('admin-filter-dest')?.value   || '');
-
   const filtered = _adminUnits.filter(u => {
     if (q) {
       const hay = [u.plate, u.imei, u.name, u.rut].filter(Boolean).join(' ').toLowerCase();
@@ -1309,19 +1308,18 @@ async function deleteSelected() {
 /* ══════════════════════════════════════════════════════════════
    DASHBOARD
 ══════════════════════════════════════════════════════════════ */
-// Navega a patentes y activa el filtro sin destinos cuando los datos estén listos
 function _irAPatentesConFiltro() {
   navigate('patentes');
   let intentos = 0;
   const poll = setInterval(() => {
     intentos++;
     const sel = document.getElementById('admin-filter-dest');
-    if (sel && window._adminUnits?.length) {
+    if (sel && _adminUnits && _adminUnits.length > 0) {
       sel.value = '__sin_destino__';
       filterAdminTable();
       clearInterval(poll);
     }
-    if (intentos > 30) clearInterval(poll);
+    if (intentos > 40) clearInterval(poll); // máximo 4s
   }, 100);
 }
 
