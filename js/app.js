@@ -2725,6 +2725,299 @@ async function generarCertificadoPDF() {
 
 let _allCerts = [];   // cache para filtrar sin re-fetch
 
+/* ══════════════════════════════════════════════════════════════════
+   CERTIFICADOS MASIVOS — agregar a app.js
+   Funciones nuevas:
+     openCertBulkModal()     — modal emisión masiva por cliente
+     _certBulkRender()       — renderiza unidades del cliente seleccionado
+     emitirCertsBulk()       — llama POST /certificados/bulk
+     _certToggleAll(chk)     — seleccionar/deseleccionar todos
+     invalidarSeleccionados() — llama PATCH /certificados/bulk/invalidar
+     eliminarSeleccionados()  — llama DELETE /certificados/bulk
+══════════════════════════════════════════════════════════════════ */
+
+/* ── Estado selección en tabla ─────────────────────────────────── */
+let _certSelected = new Set();
+
+function _certUpdateBulkBar() {
+  const n   = _certSelected.size;
+  const bar = document.getElementById('cert-bulk-bar');
+  if (!bar) return;
+  bar.style.display = n > 0 ? 'flex' : 'none';
+  const lbl = bar.querySelector('#cert-bulk-label');
+  if (lbl) lbl.textContent = `${n} certificado${n !== 1 ? 's' : ''} seleccionado${n !== 1 ? 's' : ''}`;
+
+  // Habilitar "Eliminar" solo si todos los seleccionados son eliminables
+  const certs = window._allCerts || [];
+  const selCerts = certs.filter(c => _certSelected.has(c.id));
+  const todosEliminables = selCerts.length > 0 && selCerts.every(c =>
+    c.estado === 'invalidado' || c.estado === 'vencido' ||
+    (c.estado === 'vigente' && new Date(c.fecha_vencimiento) < new Date())
+  );
+  const btnEl = bar.querySelector('#cert-btn-eliminar-sel');
+  if (btnEl) btnEl.disabled = !todosEliminables;
+}
+
+function _certChkChange(id, chk) {
+  chk.checked ? _certSelected.add(id) : _certSelected.delete(id);
+  _certUpdateBulkBar();
+}
+
+function _certToggleAll(chk) {
+  document.querySelectorAll('.cert-row-chk').forEach(c => {
+    c.checked = chk.checked;
+    chk.checked ? _certSelected.add(c.dataset.id) : _certSelected.delete(c.dataset.id);
+  });
+  _certUpdateBulkBar();
+}
+
+async function invalidarSeleccionados() {
+  if (!_certSelected.size) return;
+  const ids = [..._certSelected];
+  if (!confirm(`¿Invalidar ${ids.length} certificado${ids.length !== 1 ? 's' : ''}?`)) return;
+  try {
+    await api.patch('/certificados/bulk/invalidar', { ids });
+    _certSelected.clear();
+    await loadCertificados();
+  } catch (e) {
+    alert('Error al invalidar: ' + e.message);
+  }
+}
+
+async function eliminarSeleccionados() {
+  if (!_certSelected.size) return;
+  const ids = [..._certSelected];
+  if (!confirm(`¿Eliminar ${ids.length} certificado${ids.length !== 1 ? 's' : ''}?\nSolo se eliminarán los vencidos o invalidados.`)) return;
+  try {
+    const res = await api.delete('/certificados/bulk', { ids });
+    if (res.errors?.length) alert(`${res.deleted} eliminados. ${res.errors.length} no pudieron eliminarse.`);
+    _certSelected.clear();
+    await loadCertificados();
+  } catch (e) {
+    alert('Error al eliminar: ' + e.message);
+  }
+}
+
+/* ── Modal emisión masiva ───────────────────────────────────────── */
+let _bulkClientes  = [];
+let _bulkUnidades  = [];
+
+async function openCertBulkModal() {
+  let modal = document.getElementById('cert-bulk-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'cert-bulk-modal';
+    modal.style.cssText = `position:fixed;inset:0;z-index:9999;display:flex;
+      align-items:center;justify-content:center;
+      background:rgba(0,0,0,.6);backdrop-filter:blur(4px);`;
+    modal.onclick = e => { if (e.target === modal) modal.style.display = 'none'; };
+    document.body.appendChild(modal);
+  }
+  modal.style.display = 'flex';
+
+  // Cargar clientes y unidades en paralelo
+  try {
+    const [clientes, units] = await Promise.all([
+      api.get('/clientes'),
+      api.get('/units'),
+    ]);
+    _bulkClientes = clientes.filter(c => c.enabled !== false);
+    _bulkUnidades = units.filter(u => u.enabled);
+  } catch (e) {
+    modal.innerHTML = `<div style="background:var(--bg1);border-radius:12px;padding:32px;color:var(--red)">
+      Error al cargar datos: ${e.message}</div>`;
+    return;
+  }
+
+  const today     = new Date().toISOString().slice(0,10);
+  const nextYear  = new Date(Date.now() + 365*24*60*60*1000).toISOString().slice(0,10);
+
+  modal.innerHTML = `
+    <div style="background:var(--bg1);border:1px solid var(--border);border-radius:12px;
+      width:min(780px,95vw);max-height:90vh;display:flex;flex-direction:column;
+      box-shadow:0 20px 60px rgba(0,0,0,.5)">
+
+      <!-- Header -->
+      <div style="padding:16px 20px;border-bottom:1px solid var(--border);
+        display:flex;align-items:center;justify-content:space-between">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:20px">📋</span>
+          <div>
+            <div style="font-weight:700;font-size:15px">Emisión masiva de certificados</div>
+            <div style="font-size:12px;color:var(--text3)">Selecciona un cliente y sus unidades</div>
+          </div>
+        </div>
+        <button onclick="document.getElementById('cert-bulk-modal').style.display='none'"
+          style="width:30px;height:30px;border-radius:6px;border:1px solid var(--border);
+            background:transparent;cursor:pointer;color:var(--text2);font-size:16px">✕</button>
+      </div>
+
+      <!-- Paso 1: Cliente + campos comunes -->
+      <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:grid;
+        grid-template-columns:1fr 1fr;gap:12px">
+        <div style="grid-column:1/-1">
+          <label class="label">Cliente</label>
+          <select id="bulk-cliente" class="input" onchange="_certBulkRender()" style="width:100%;cursor:pointer">
+            <option value="">— Seleccionar cliente —</option>
+            ${_bulkClientes.map(c => `<option value="${c.id}">${c.name}${c.rut ? ' · '+c.rut : ''}</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <label class="label">Empresa (en certificado)</label>
+          <input id="bulk-empresa" class="input" placeholder="Nombre empresa" style="width:100%"/>
+        </div>
+        <div>
+          <label class="label">RUT empresa</label>
+          <input id="bulk-rut-empresa" class="input" placeholder="12.345.678-9" style="width:100%"/>
+        </div>
+        <div>
+          <label class="label">Firmante</label>
+          <input id="bulk-firmante" class="input" placeholder="Nombre firmante" style="width:100%"/>
+        </div>
+        <div>
+          <label class="label">RUT firmante</label>
+          <input id="bulk-rut-firmante" class="input" placeholder="9.876.543-2" style="width:100%"/>
+        </div>
+        <div>
+          <label class="label">Fecha emisión</label>
+          <input id="bulk-f-emision" type="date" class="input" value="${today}" style="width:100%"/>
+        </div>
+        <div>
+          <label class="label">Fecha vencimiento</label>
+          <input id="bulk-f-vencimiento" type="date" class="input" value="${nextYear}" style="width:100%"/>
+        </div>
+      </div>
+
+      <!-- Paso 2: Tabla de unidades del cliente -->
+      <div style="overflow-y:auto;flex:1;min-height:100px" id="bulk-units-wrap">
+        <div style="padding:24px;text-align:center;color:var(--text3)">
+          Selecciona un cliente para ver sus unidades
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div style="padding:12px 20px;border-top:1px solid var(--border);
+        display:flex;justify-content:space-between;align-items:center">
+        <span id="bulk-count-label" style="font-size:12px;color:var(--text3)"></span>
+        <div style="display:flex;gap:8px">
+          <button onclick="document.getElementById('cert-bulk-modal').style.display='none'"
+            class="btn sm">Cancelar</button>
+          <button onclick="emitirCertsBulk()" class="btn sm primary" id="bulk-btn-emitir" disabled>
+            Emitir certificados
+          </button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function _certBulkRender() {
+  const clienteId = document.getElementById('bulk-cliente')?.value;
+  const wrap      = document.getElementById('bulk-units-wrap');
+  const btnEmitir = document.getElementById('bulk-btn-emitir');
+  if (!clienteId || !wrap) return;
+
+  const units = _bulkUnidades.filter(u => u.cliente_id === clienteId);
+
+  if (!units.length) {
+    wrap.innerHTML = `<div style="padding:24px;text-align:center;color:var(--text3)">
+      Este cliente no tiene unidades activas asignadas.</div>`;
+    if (btnEmitir) btnEmitir.disabled = true;
+    return;
+  }
+
+  // Auto-rellenar empresa con el nombre del cliente
+  const cliente = _bulkClientes.find(c => c.id === clienteId);
+  const empInput = document.getElementById('bulk-empresa');
+  if (empInput && !empInput.value && cliente) empInput.value = cliente.name;
+
+  wrap.innerHTML = `
+    <table style="width:100%;border-collapse:collapse">
+      <thead><tr style="background:var(--bg2);font-size:11px;text-transform:uppercase;
+        letter-spacing:.5px;color:var(--text3);position:sticky;top:0">
+        <th style="padding:8px 12px;width:36px">
+          <input type="checkbox" id="bulk-chk-all" onchange="_bulkToggleAll(this)"
+            title="Seleccionar todas"/>
+        </th>
+        <th style="padding:8px 12px;text-align:left;font-weight:600">Patente</th>
+        <th style="padding:8px 12px;text-align:left;font-weight:600">IMEI</th>
+        <th style="padding:8px 12px;text-align:left;font-weight:600">Nombre</th>
+      </tr></thead>
+      <tbody>
+        ${units.map(u => `
+          <tr style="border-bottom:1px solid var(--border)"
+            onmouseenter="this.style.background='var(--bg2)'"
+            onmouseleave="this.style.background=''">
+            <td style="padding:8px 12px">
+              <input type="checkbox" class="bulk-unit-chk" data-imei="${u.imei}"
+                data-plate="${u.plate||''}" checked onchange="_bulkChkChange()"/>
+            </td>
+            <td style="padding:8px 12px;font-weight:600;font-family:monospace">${u.plate||'—'}</td>
+            <td style="padding:8px 12px;font-size:12px;color:var(--text2);font-family:monospace">${u.imei}</td>
+            <td style="padding:8px 12px;font-size:12px;color:var(--text2)">${u.name||'—'}</td>
+          </tr>`).join('')}
+      </tbody>
+    </table>`;
+
+  _bulkChkChange();
+}
+
+function _bulkToggleAll(chk) {
+  document.querySelectorAll('.bulk-unit-chk').forEach(c => c.checked = chk.checked);
+  _bulkChkChange();
+}
+
+function _bulkChkChange() {
+  const n = document.querySelectorAll('.bulk-unit-chk:checked').length;
+  const lbl = document.getElementById('bulk-count-label');
+  if (lbl) lbl.textContent = n > 0 ? `${n} unidad${n !== 1 ? 'es' : ''} seleccionada${n !== 1 ? 's' : ''}` : '';
+  const btn = document.getElementById('bulk-btn-emitir');
+  if (btn) btn.disabled = n === 0;
+  // Sincronizar checkbox cabecera
+  const all  = document.querySelectorAll('.bulk-unit-chk').length;
+  const chkAll = document.getElementById('bulk-chk-all');
+  if (chkAll) { chkAll.checked = n === all; chkAll.indeterminate = n > 0 && n < all; }
+}
+
+async function emitirCertsBulk() {
+  const empresa        = document.getElementById('bulk-empresa')?.value.trim()       || '';
+  const rut_empresa    = document.getElementById('bulk-rut-empresa')?.value.trim()   || '';
+  const firmante       = document.getElementById('bulk-firmante')?.value.trim()      || '';
+  const rut_firmante   = document.getElementById('bulk-rut-firmante')?.value.trim()  || '';
+  const fecha_emision  = document.getElementById('bulk-f-emision')?.value            || '';
+  const fecha_vencimiento = document.getElementById('bulk-f-vencimiento')?.value     || '';
+
+  if (!fecha_emision || !fecha_vencimiento)
+    return alert('Completa las fechas de emisión y vencimiento.');
+
+  const checks = [...document.querySelectorAll('.bulk-unit-chk:checked')];
+  if (!checks.length) return alert('Selecciona al menos una unidad.');
+
+  const certificados = checks.map(c => ({
+    patente: c.dataset.plate || '',
+    imei:    c.dataset.imei  || '',
+    empresa, rut_empresa, firmante, rut_firmante,
+    fecha_emision, fecha_vencimiento,
+    validez_texto: '1 año',
+  }));
+
+  const btn = document.getElementById('bulk-btn-emitir');
+  if (btn) { btn.disabled = true; btn.textContent = 'Emitiendo…'; }
+
+  try {
+    const res = await api.post('/certificados/bulk', { certificados });
+    document.getElementById('cert-bulk-modal').style.display = 'none';
+
+    let msg = `✅ ${res.created} certificado${res.created !== 1 ? 's' : ''} emitido${res.created !== 1 ? 's' : ''} correctamente.`;
+    if (res.errors?.length) msg += `\n⚠ ${res.errors.length} no pudieron emitirse.`;
+    alert(msg);
+
+    await loadCertificados();
+  } catch (e) {
+    alert('Error al emitir: ' + e.message);
+    if (btn) { btn.disabled = false; btn.textContent = 'Emitir certificados'; }
+  }
+}
+
 async function loadCertificados() {
   const wrap = document.getElementById('cert-list-wrap');
   if (!wrap) return;
@@ -2773,10 +3066,24 @@ function _renderCertTable() {
 
   wrap.innerHTML = `
     ${_certFilterBar()}
+    <div id="cert-bulk-bar" style="display:none;padding:8px 16px;margin-top:8px;
+      background:var(--bg2);border:1px solid var(--border);border-radius:8px;
+      align-items:center;gap:10px;flex-wrap:wrap">
+      <span id="cert-bulk-label" style="font-size:13px;font-weight:600;color:var(--text2)"></span>
+      <button onclick="invalidarSeleccionados()" class="btn sm amber" style="margin-left:auto">
+        🚫 Invalidar seleccionadas
+      </button>
+      <button onclick="eliminarSeleccionados()" id="cert-btn-eliminar-sel" class="btn sm danger" disabled>
+        🗑 Eliminar seleccionadas
+      </button>
+    </div>
     <div style="overflow-x:auto;margin-top:12px">
       <table style="width:100%;border-collapse:collapse;font-size:13px">
         <thead>
           <tr style="border-bottom:1px solid rgba(148,163,184,.12)">
+            <th style="padding:9px 12px;width:36px">
+              <input type="checkbox" id="cert-chk-all" onchange="_certToggleAll(this)" title="Seleccionar todas"/>
+            </th>
             ${['Patente','IMEI','Empresa','Emisión','Vencimiento','Estado','Acciones'].map(h =>
               `<th style="padding:9px 12px;text-align:left;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;white-space:nowrap">${h}</th>`
             ).join('')}
@@ -2846,6 +3153,10 @@ function _certRow(c) {
 
   return `<tr style="border-bottom:1px solid rgba(148,163,184,.07);transition:background .12s"
     onmouseenter="this.style.background='rgba(255,255,255,.02)'" onmouseleave="this.style.background=''">
+    <td style="padding:6px 10px;width:36px">
+      <input type="checkbox" class="cert-row-chk" data-id="${c.id}"
+        onchange="_certChkChange('${c.id}', this)"/>
+    </td>
     <td style="padding:10px 12px;font-weight:700;letter-spacing:.5px;font-family:monospace">${c.patente}</td>
     <td style="padding:10px 12px;color:var(--text2);font-size:12px">${c.imei}</td>
     <td style="padding:10px 12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${c.empresa||''}">${c.empresa||'–'}</td>
@@ -3024,16 +3335,14 @@ function filterDestGrid() {
 function _renderValDestinos(status, responses) {
   const container = document.getElementById('res-destinos');
   if (!container) return;
- 
+
   const targets = status?.targets || [];
   const results = (responses?.results || []);
- 
+
   if (!targets.length) {
     container.innerHTML = `
       <div class="card" style="margin-top:16px">
-        <div class="card-header">
-          <h3>Integraciones / Destinos</h3>
-        </div>
+        <div class="card-header"><h3>Integraciones / Destinos</h3></div>
         <div class="card-body">
           <div style="text-align:center;padding:20px;color:var(--text3);font-size:13px">
             Sin destinos asignados a esta unidad
@@ -3042,7 +3351,7 @@ function _renderValDestinos(status, responses) {
       </div>`;
     return;
   }
- 
+
   // Agrupar eventos por nombre de destino
   const grouped = {};
   results.forEach(r => {
@@ -3050,10 +3359,9 @@ function _renderValDestinos(status, responses) {
     if (!grouped[key]) grouped[key] = [];
     grouped[key].push(r);
   });
- 
-  // Guardar datos globalmente para acceder desde el modal
   window._valDestinosData = grouped;
- 
+  window._valDestinosTargets = targets;
+
   function _timeAgo(ts) {
     if (!ts) return '—';
     const mins = Math.round((Date.now() - new Date(ts).getTime()) / 60000);
@@ -3062,148 +3370,293 @@ function _renderValDestinos(status, responses) {
     if (mins < 1440) return `${Math.round(mins / 60)} h atrás`;
     return new Date(ts).toLocaleDateString('es-CL');
   }
- 
+
   const buttons = targets.map(tName => {
     const evs  = grouped[tName] || [];
     const last = evs[0];
     const ok   = last?.ok;
- 
-    // Indicador de estado del último reenvío
-    let dotColor = 'var(--text3)'; // sin datos
+    let dotColor = 'var(--text3)';
     if (ok === true)  dotColor = 'var(--green)';
     if (ok === false) dotColor = 'var(--red)';
- 
     const lastTime = _timeAgo(last?.at);
- 
     return `
-      <button onclick="openDestModal('${tName.replace(/'/g,"\\'")}', '${dotColor}')"
+      <button onclick="openDestModal('${tName.replace(/'/g,"\'")}', '${dotColor}')"
         style="display:flex;align-items:center;gap:10px;padding:10px 14px;
           border-radius:8px;border:1px solid var(--border);background:var(--bg2);
           cursor:pointer;text-align:left;transition:border-color .15s;width:100%"
         onmouseover="this.style.borderColor='var(--sky)'"
         onmouseout="this.style.borderColor='var(--border)'">
- 
-        <span style="width:9px;height:9px;border-radius:99px;background:${dotColor};
-          flex-shrink:0;display:inline-block"></span>
- 
+        <span style="width:9px;height:9px;border-radius:99px;background:${dotColor};flex-shrink:0;display:inline-block"></span>
         <span style="flex:1;font-size:13px;font-weight:500;color:var(--text)">${tName}</span>
- 
         <span style="font-size:11px;color:var(--text3)">${lastTime}</span>
- 
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-          stroke="currentColor" stroke-width="2" style="color:var(--text3);flex-shrink:0">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3);flex-shrink:0">
           <polyline points="9 18 15 12 9 6"/>
         </svg>
       </button>`;
   }).join('');
- 
+
   container.innerHTML = `
     <div class="card" style="margin-top:16px">
       <div class="card-header">
         <h3>Integraciones / Destinos</h3>
-        <span class="badge sky">${targets.length} destino${targets.length !== 1 ? 's' : ''}</span>
+        <button onclick="openDestModalAll()" class="btn sm primary" style="gap:5px">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+            <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+          </svg>
+          Ver todos
+        </button>
       </div>
       <div class="card-body" style="display:grid;gap:8px;padding:12px">
         ${buttons}
       </div>
     </div>`;
 }
- 
-// ─── openDestModal ───────────────────────────────────────────────────────────
-// Abre el modal con el historial completo del destino seleccionado.
+
+
+// ─── Abrir modal con todos los destinos (sidebar + detalle) ─────
+function openDestModalAll() {
+  _openDestModalBase();
+  // Seleccionar el primero por defecto
+  const targets = window._valDestinosTargets || [];
+  if (targets.length) _destModalSelectTab(targets[0]);
+}
+
 function openDestModal(tName, dotColor) {
+  _openDestModalBase();
+  _destModalSelectTab(tName);
+}
+
+function _openDestModalBase() {
   const overlay = document.getElementById('dest-modal-overlay');
-  const title   = document.getElementById('dest-modal-title');
-  const dot     = document.getElementById('dest-modal-dot');
+  if (!overlay) return;
+
+  const targets = window._valDestinosTargets || [];
+  const grouped = window._valDestinosData   || {};
+
+  // ── Si el nuevo layout no existe en el HTML, inyectarlo ──────
+  if (!document.getElementById('dest-modal-sidebar')) {
+    overlay.style.cssText = `position:fixed;inset:0;z-index:9999;display:flex;
+      align-items:center;justify-content:center;
+      background:rgba(0,0,0,.65);backdrop-filter:blur(4px);padding:16px;`;
+    overlay.onclick = e => { if (e.target === overlay) overlay.style.display = 'none'; };
+    overlay.innerHTML = `
+      <div style="background:var(--bg1,#0f1929);border:1px solid var(--border);border-radius:16px;
+        width:min(900px,96vw);max-height:88vh;display:flex;flex-direction:column;
+        box-shadow:0 20px 60px rgba(0,0,0,.5);overflow:hidden">
+        <div style="padding:14px 18px;border-bottom:1px solid var(--border);
+          display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+          <div style="display:flex;align-items:center;gap:10px">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.99 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.9 1.27h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 8.91a16 16 0 0 0 5.61 5.61l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+            </svg>
+            <h3 style="font-size:14px;font-weight:600">Integraciones / Destinos</h3>
+            <span id="dest-modal-badge" style="font-size:11px;background:rgba(56,189,248,.12);
+              color:#38bdf8;border:1px solid rgba(56,189,248,.2);border-radius:99px;
+              padding:2px 8px;font-weight:600"></span>
+          </div>
+          <button onclick="closeDestModal()" style="width:28px;height:28px;border-radius:6px;
+            border:1px solid var(--border);background:transparent;cursor:pointer;
+            color:var(--text2);font-size:16px;display:flex;align-items:center;justify-content:center">✕</button>
+        </div>
+        <div style="display:flex;flex:1;overflow:hidden;min-height:0">
+          <div id="dest-modal-sidebar" style="width:210px;flex-shrink:0;border-right:1px solid var(--border);
+            overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:3px"></div>
+          <div id="dest-modal-body" style="flex:1;overflow-y:auto;padding:18px;min-width:0">
+            <div style="text-align:center;padding:40px;color:var(--text3)">
+              Selecciona un destino del panel izquierdo
+            </div>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  // Poblar sidebar
+  const sidebar = document.getElementById('dest-modal-sidebar');
+  const badge   = document.getElementById('dest-modal-badge');
+  if (badge) badge.textContent = `${targets.length} destino${targets.length !== 1 ? 's' : ''}`;
+
+  if (sidebar) {
+    sidebar.innerHTML = targets.map(tName => {
+      const evs  = grouped[tName] || [];
+      const last = evs[0];
+      const ok   = last?.ok;
+      let dot = '#64748b';
+      if (ok === true)  dot = '#22c55e';
+      if (ok === false) dot = '#ef4444';
+      return `
+        <button id="dest-tab-${tName.replace(/\W/g,'_')}"
+          onclick="_destModalSelectTab('${tName.replace(/'/g,"\'")}', this)"
+          style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:8px;
+            border:1px solid transparent;background:transparent;cursor:pointer;
+            text-align:left;width:100%;transition:background .12s;font-family:inherit">
+          <span style="width:8px;height:8px;border-radius:99px;background:${dot};flex-shrink:0"></span>
+          <span style="font-size:12px;font-weight:500;color:var(--text);
+            white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1">${tName}</span>
+          <span style="font-size:10px;color:var(--text3);flex-shrink:0">${evs.length}</span>
+        </button>`;
+    }).join('');
+  }
+
+  // Mostrar — compatible con class.show Y display directo
+  overlay.classList.add('show');
+  overlay.style.display = 'flex';
+}
+
+function closeDestModal() {
+  const ov = document.getElementById('dest-modal-overlay');
+  if (!ov) return;
+  ov.classList.remove('show');
+  ov.style.display = 'none';
+}
+
+function _destModalSelectTab(tName, btnEl) {
+  // Highlight tab activo
+  document.querySelectorAll('#dest-modal-sidebar button').forEach(b => {
+    b.style.background = '';
+    b.style.borderColor = 'transparent';
+    b.style.color = '';
+  });
+  const activeBtn = btnEl || document.getElementById('dest-tab-' + tName.replace(/\s/g,'_'));
+  if (activeBtn) {
+    activeBtn.style.background    = 'var(--bg2)';
+    activeBtn.style.borderColor   = 'var(--border)';
+  }
+
   const body    = document.getElementById('dest-modal-body');
-  if (!overlay || !body) return;
- 
-  title.textContent   = tName;
-  dot.style.background = dotColor || 'var(--sky)';
- 
-  const evs = (window._valDestinosData || {})[tName] || [];
- 
+  const grouped = window._valDestinosData || {};
+  const evs     = grouped[tName] || [];
+
   function _fmt(ts) {
     if (!ts) return '—';
     return new Date(ts).toLocaleString('es-CL');
   }
- 
+
   if (!evs.length) {
     body.innerHTML = `
-      <div style="text-align:center;padding:24px;color:var(--text3);font-size:13px">
-        Sin historial registrado para este destino
+      <div style="text-align:center;padding:40px;color:var(--text3);font-size:13px">
+        <div style="font-size:28px;margin-bottom:8px">📭</div>
+        Sin historial registrado para <strong>${tName}</strong>
       </div>`;
-  } else {
-    const last = evs[0];
-    // Datos generales del último evento
-    const generalHTML = `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-        <div>
-          <div class="label" style="margin-bottom:3px">Último envío</div>
-          <div style="font-size:13px;font-weight:500">${_fmt(last.at)}</div>
-        </div>
-        <div>
-          <div class="label" style="margin-bottom:3px">Resultado</div>
-          <div>${last.ok === null || last.ok === undefined
-            ? `<span style="color:var(--text3);font-size:12px">Sin datos</span>`
-            : last.ok
-              ? `<span class="badge green">${(last.response || '200 OK').slice(0,30)}</span>`
-              : `<span class="badge red">${(last.response || 'Error').slice(0,30)}</span>`
-          }</div>
-        </div>
-        ${last.tx ? `
-        <div>
-          <div class="label" style="margin-bottom:3px">Velocidad</div>
-          <div style="font-size:13px">${last.tx.speed !== null && last.tx.speed !== undefined ? last.tx.speed + ' km/h' : '—'}</div>
-        </div>
-        <div>
-          <div class="label" style="margin-bottom:3px">GPS timestamp</div>
-          <div style="font-size:12px">${last.tx.fechaHoraISO ? _fmt(last.tx.fechaHoraISO) : '—'}</div>
-        </div>
-        ${last.tx.lat ? `
-        <div style="grid-column:span 2">
-          <div class="label" style="margin-bottom:3px">Coordenadas</div>
-          <div style="font-size:12px;font-family:'DM Mono',monospace;color:var(--sky)">
-            ${parseFloat(last.tx.lat).toFixed(6)}, ${parseFloat(last.tx.lon).toFixed(6)}
-          </div>
-        </div>` : ''}` : ''}
-      </div>`;
- 
-    // Historial de últimos envíos
-    const histHTML = `
-      <div>
-        <div class="label" style="margin-bottom:8px">Historial de envíos</div>
-        <div style="display:grid;gap:4px">
-          ${evs.map(e => `
-            <div style="display:grid;grid-template-columns:1fr 1fr 60px;
-              gap:8px;align-items:center;padding:7px 10px;border-radius:6px;
-              background:var(--bg2);font-size:12px">
-              <span style="color:var(--text2)">${_fmt(e.at)}</span>
-              <span style="font-family:'DM Mono',monospace;
-                color:${e.ok ? 'var(--green)' : e.ok === false ? 'var(--red)' : 'var(--text3)'};
-                overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
-                ${(e.response || (e.ok === null ? 'Sin datos' : '—')).slice(0,35)}
-              </span>
-              <span class="badge ${e.ok ? 'green' : e.ok === false ? 'red' : ''}"
-                style="font-size:10px;justify-self:end;
-                  ${e.ok === null || e.ok === undefined ? 'opacity:.4' : ''}">
-                ${e.ok ? '✓ OK' : e.ok === false ? '✗ Error' : '—'}
-              </span>
-            </div>`).join('')}
-        </div>
-      </div>`;
- 
-    body.innerHTML = generalHTML + histHTML;
+    return;
   }
- 
-  overlay.classList.add('show');
+
+  const last = evs[0];
+
+  // ── Resumen del último envío ──────────────────────────────────
+  const summaryHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px">
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px">
+        <div class="label" style="margin-bottom:4px">Destino</div>
+        <div style="font-size:14px;font-weight:600">${tName}</div>
+      </div>
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px">
+        <div class="label" style="margin-bottom:4px">Total envíos</div>
+        <div style="font-size:14px;font-weight:600">${evs.length}</div>
+      </div>
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px">
+        <div class="label" style="margin-bottom:4px">Último envío</div>
+        <div style="font-size:13px">${_fmt(last.at)}</div>
+      </div>
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px">
+        <div class="label" style="margin-bottom:4px">Último resultado</div>
+        <div>${last.ok === null || last.ok === undefined
+          ? `<span style="color:var(--text3);font-size:12px">Sin datos</span>`
+          : last.ok
+            ? `<span class="badge green">${(last.response || '200 OK').slice(0,30)}</span>`
+            : `<span class="badge red">${(last.response || 'Error').slice(0,40)}</span>`
+        }</div>
+      </div>
+      ${last.tx?.lat ? `
+      <div style="grid-column:span 2;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px">
+        <div class="label" style="margin-bottom:4px">Última posición</div>
+        <div style="font-size:12px;font-family:'DM Mono',monospace;color:var(--sky)">
+          ${parseFloat(last.tx.lat).toFixed(6)}, ${parseFloat(last.tx.lon).toFixed(6)}
+          ${last.tx.speed !== null && last.tx.speed !== undefined ? ` · ${last.tx.speed} km/h` : ''}
+        </div>
+      </div>` : ''}
+    </div>`;
+
+  // ── Tabla de historial paginada ───────────────────────────────
+  const PAGE = 20;
+  let page = 0;
+
+  function renderPage() {
+    const slice = evs.slice(page * PAGE, (page + 1) * PAGE);
+    const ok_count  = evs.filter(e => e.ok === true).length;
+    const err_count = evs.filter(e => e.ok === false).length;
+
+    body.innerHTML = summaryHTML + `
+      <!-- Estadísticas rápidas -->
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+        <span class="badge green">✅ ${ok_count} OK</span>
+        <span class="badge red">❌ ${err_count} Error</span>
+        ${evs.length - ok_count - err_count > 0
+          ? `<span class="badge" style="background:var(--bg2)">⬜ ${evs.length - ok_count - err_count} Sin datos</span>` : ''}
+      </div>
+
+      <!-- Cabecera historial -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div class="label">Historial de envíos</div>
+        <span style="font-size:11px;color:var(--text3)">
+          ${page * PAGE + 1}–${Math.min((page+1)*PAGE, evs.length)} de ${evs.length}
+        </span>
+      </div>
+
+      <!-- Tabla -->
+      <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden">
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead>
+            <tr style="background:var(--bg2);font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--text3)">
+              <th style="padding:8px 12px;text-align:left;font-weight:600">Fecha</th>
+              <th style="padding:8px 12px;text-align:left;font-weight:600">Resultado</th>
+              <th style="padding:8px 12px;text-align:left;font-weight:600">Respuesta</th>
+              <th style="padding:8px 12px;text-align:left;font-weight:600">Velocidad</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${slice.map(e => `
+              <tr style="border-top:1px solid var(--border)"
+                onmouseenter="this.style.background='var(--bg2)'"
+                onmouseleave="this.style.background=''">
+                <td style="padding:7px 12px;white-space:nowrap;color:var(--text2)">${_fmt(e.at)}</td>
+                <td style="padding:7px 12px">
+                  ${e.ok === true  ? '<span class="badge green" style="font-size:10px">OK</span>'
+                  : e.ok === false ? '<span class="badge red" style="font-size:10px">Error</span>'
+                  :                  '<span style="color:var(--text3);font-size:11px">—</span>'}
+                </td>
+                <td style="padding:7px 12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;
+                  white-space:nowrap;font-family:monospace;font-size:11px;color:var(--text2)"
+                  title="${(e.response||'').replace(/"/g,'&quot;')}">
+                  ${e.response ? e.response.slice(0,60) : '—'}
+                </td>
+                <td style="padding:7px 12px;color:var(--text2)">
+                  ${e.tx?.speed !== null && e.tx?.speed !== undefined ? e.tx.speed + ' km/h' : '—'}
+                </td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Paginación -->
+      ${evs.length > PAGE ? `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px">
+        <button onclick="_destPage(-1)" class="btn sm" ${page === 0 ? 'disabled' : ''}>← Anterior</button>
+        <span style="font-size:12px;color:var(--text3)">Página ${page+1} de ${Math.ceil(evs.length/PAGE)}</span>
+        <button onclick="_destPage(1)" class="btn sm" ${(page+1)*PAGE >= evs.length ? 'disabled' : ''}>Siguiente →</button>
+      </div>` : ''}`;
+
+    window._destPage = (dir) => {
+      page = Math.max(0, Math.min(Math.ceil(evs.length/PAGE)-1, page + dir));
+      renderPage();
+      body.scrollTop = 0;
+    };
+  }
+
+  renderPage();
 }
- 
-// ─── closeDestModal ──────────────────────────────────────────────────────────
-function closeDestModal() {
-  document.getElementById('dest-modal-overlay')?.classList.remove('show');
-}
- 
+
+
 // Cerrar al hacer clic en el fondo del overlay
 document.addEventListener('click', e => {
   const overlay = document.getElementById('dest-modal-overlay');
