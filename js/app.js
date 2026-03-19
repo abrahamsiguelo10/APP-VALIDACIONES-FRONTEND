@@ -3417,14 +3417,17 @@ function _renderValDestinos(status, responses) {
 // ─── Abrir modal con todos los destinos (sidebar + detalle) ─────
 function openDestModalAll() {
   _openDestModalBase();
-  // Seleccionar el primero por defecto
   const targets = window._valDestinosTargets || [];
-  if (targets.length) _destModalSelectTab(targets[0]);
+  const grouped = window._valDestinosData   || {};
+  // Preferir el primero que tenga datos; si no, el primero disponible
+  const first = targets.find(t => (grouped[t]||[]).length > 0) || targets[0];
+  if (first) setTimeout(() => _destModalSelectTab(first), 50);
 }
 
 function openDestModal(tName, dotColor) {
   _openDestModalBase();
-  _destModalSelectTab(tName);
+  // Pequeño delay para que el DOM esté listo antes de seleccionar
+  setTimeout(() => _destModalSelectTab(tName), 50);
 }
 
 function _openDestModalBase() {
@@ -3534,9 +3537,16 @@ function _destModalSelectTab(tName, btnEl) {
 
   if (!evs.length) {
     body.innerHTML = `
-      <div style="text-align:center;padding:40px;color:var(--text3);font-size:13px">
-        <div style="font-size:28px;margin-bottom:8px">📭</div>
-        Sin historial registrado para <strong>${tName}</strong>
+      <div style="text-align:center;padding:48px 24px;color:var(--text3)">
+        <div style="font-size:36px;margin-bottom:12px">📡</div>
+        <div style="font-size:14px;font-weight:600;color:var(--text2);margin-bottom:6px">
+          Sin envíos registrados
+        </div>
+        <div style="font-size:12px;line-height:1.6;max-width:280px;margin:0 auto">
+          El destino <strong style="color:var(--text)">${tName}</strong> está asignado
+          a esta unidad pero aún no ha recibido datos GPS.<br>
+          Los envíos aparecerán aquí en cuanto la unidad transmita.
+        </div>
       </div>`;
     return;
   }
