@@ -364,6 +364,18 @@ select.input option { background: #0f1929; color: #dce8f8; }
       margin-bottom: 16px;
     }
     .toolbar-right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+ /* agregar: */
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.modal-body {
+  /* cambiar display:grid por: */
+  display: block;
+  overflow-y: auto;
+  flex: 1;
 
     /* Mono */
     .mono { font-family: 'DM Mono', monospace; }
