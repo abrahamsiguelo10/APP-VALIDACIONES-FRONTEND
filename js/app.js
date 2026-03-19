@@ -2725,6 +2725,299 @@ async function generarCertificadoPDF() {
 
 let _allCerts = [];   // cache para filtrar sin re-fetch
 
+/* ══════════════════════════════════════════════════════════════════
+   CERTIFICADOS MASIVOS — agregar a app.js
+   Funciones nuevas:
+     openCertBulkModal()     — modal emisión masiva por cliente
+     _certBulkRender()       — renderiza unidades del cliente seleccionado
+     emitirCertsBulk()       — llama POST /certificados/bulk
+     _certToggleAll(chk)     — seleccionar/deseleccionar todos
+     invalidarSeleccionados() — llama PATCH /certificados/bulk/invalidar
+     eliminarSeleccionados()  — llama DELETE /certificados/bulk
+══════════════════════════════════════════════════════════════════ */
+
+/* ── Estado selección en tabla ─────────────────────────────────── */
+let _certSelected = new Set();
+
+function _certUpdateBulkBar() {
+  const n   = _certSelected.size;
+  const bar = document.getElementById('cert-bulk-bar');
+  if (!bar) return;
+  bar.style.display = n > 0 ? 'flex' : 'none';
+  const lbl = bar.querySelector('#cert-bulk-label');
+  if (lbl) lbl.textContent = `${n} certificado${n !== 1 ? 's' : ''} seleccionado${n !== 1 ? 's' : ''}`;
+
+  // Habilitar "Eliminar" solo si todos los seleccionados son eliminables
+  const certs = window._allCerts || [];
+  const selCerts = certs.filter(c => _certSelected.has(c.id));
+  const todosEliminables = selCerts.length > 0 && selCerts.every(c =>
+    c.estado === 'invalidado' || c.estado === 'vencido' ||
+    (c.estado === 'vigente' && new Date(c.fecha_vencimiento) < new Date())
+  );
+  const btnEl = bar.querySelector('#cert-btn-eliminar-sel');
+  if (btnEl) btnEl.disabled = !todosEliminables;
+}
+
+function _certChkChange(id, chk) {
+  chk.checked ? _certSelected.add(id) : _certSelected.delete(id);
+  _certUpdateBulkBar();
+}
+
+function _certToggleAll(chk) {
+  document.querySelectorAll('.cert-row-chk').forEach(c => {
+    c.checked = chk.checked;
+    chk.checked ? _certSelected.add(c.dataset.id) : _certSelected.delete(c.dataset.id);
+  });
+  _certUpdateBulkBar();
+}
+
+async function invalidarSeleccionados() {
+  if (!_certSelected.size) return;
+  const ids = [..._certSelected];
+  if (!confirm(`¿Invalidar ${ids.length} certificado${ids.length !== 1 ? 's' : ''}?`)) return;
+  try {
+    await api.patch('/certificados/bulk/invalidar', { ids });
+    _certSelected.clear();
+    await loadCertificados();
+  } catch (e) {
+    alert('Error al invalidar: ' + e.message);
+  }
+}
+
+async function eliminarSeleccionados() {
+  if (!_certSelected.size) return;
+  const ids = [..._certSelected];
+  if (!confirm(`¿Eliminar ${ids.length} certificado${ids.length !== 1 ? 's' : ''}?\nSolo se eliminarán los vencidos o invalidados.`)) return;
+  try {
+    const res = await api.delete('/certificados/bulk', { ids });
+    if (res.errors?.length) alert(`${res.deleted} eliminados. ${res.errors.length} no pudieron eliminarse.`);
+    _certSelected.clear();
+    await loadCertificados();
+  } catch (e) {
+    alert('Error al eliminar: ' + e.message);
+  }
+}
+
+/* ── Modal emisión masiva ───────────────────────────────────────── */
+let _bulkClientes  = [];
+let _bulkUnidades  = [];
+
+async function openCertBulkModal() {
+  let modal = document.getElementById('cert-bulk-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'cert-bulk-modal';
+    modal.style.cssText = `position:fixed;inset:0;z-index:9999;display:flex;
+      align-items:center;justify-content:center;
+      background:rgba(0,0,0,.6);backdrop-filter:blur(4px);`;
+    modal.onclick = e => { if (e.target === modal) modal.style.display = 'none'; };
+    document.body.appendChild(modal);
+  }
+  modal.style.display = 'flex';
+
+  // Cargar clientes y unidades en paralelo
+  try {
+    const [clientes, units] = await Promise.all([
+      api.get('/clientes'),
+      api.get('/units'),
+    ]);
+    _bulkClientes = clientes.filter(c => c.enabled !== false);
+    _bulkUnidades = units.filter(u => u.enabled);
+  } catch (e) {
+    modal.innerHTML = `<div style="background:var(--bg1);border-radius:12px;padding:32px;color:var(--red)">
+      Error al cargar datos: ${e.message}</div>`;
+    return;
+  }
+
+  const today     = new Date().toISOString().slice(0,10);
+  const nextYear  = new Date(Date.now() + 365*24*60*60*1000).toISOString().slice(0,10);
+
+  modal.innerHTML = `
+    <div style="background:var(--bg1);border:1px solid var(--border);border-radius:12px;
+      width:min(780px,95vw);max-height:90vh;display:flex;flex-direction:column;
+      box-shadow:0 20px 60px rgba(0,0,0,.5)">
+
+      <!-- Header -->
+      <div style="padding:16px 20px;border-bottom:1px solid var(--border);
+        display:flex;align-items:center;justify-content:space-between">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:20px">📋</span>
+          <div>
+            <div style="font-weight:700;font-size:15px">Emisión masiva de certificados</div>
+            <div style="font-size:12px;color:var(--text3)">Selecciona un cliente y sus unidades</div>
+          </div>
+        </div>
+        <button onclick="document.getElementById('cert-bulk-modal').style.display='none'"
+          style="width:30px;height:30px;border-radius:6px;border:1px solid var(--border);
+            background:transparent;cursor:pointer;color:var(--text2);font-size:16px">✕</button>
+      </div>
+
+      <!-- Paso 1: Cliente + campos comunes -->
+      <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:grid;
+        grid-template-columns:1fr 1fr;gap:12px">
+        <div style="grid-column:1/-1">
+          <label class="label">Cliente</label>
+          <select id="bulk-cliente" class="input" onchange="_certBulkRender()" style="width:100%;cursor:pointer">
+            <option value="">— Seleccionar cliente —</option>
+            ${_bulkClientes.map(c => `<option value="${c.id}">${c.name}${c.rut ? ' · '+c.rut : ''}</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <label class="label">Empresa (en certificado)</label>
+          <input id="bulk-empresa" class="input" placeholder="Nombre empresa" style="width:100%"/>
+        </div>
+        <div>
+          <label class="label">RUT empresa</label>
+          <input id="bulk-rut-empresa" class="input" placeholder="12.345.678-9" style="width:100%"/>
+        </div>
+        <div>
+          <label class="label">Firmante</label>
+          <input id="bulk-firmante" class="input" placeholder="Nombre firmante" style="width:100%"/>
+        </div>
+        <div>
+          <label class="label">RUT firmante</label>
+          <input id="bulk-rut-firmante" class="input" placeholder="9.876.543-2" style="width:100%"/>
+        </div>
+        <div>
+          <label class="label">Fecha emisión</label>
+          <input id="bulk-f-emision" type="date" class="input" value="${today}" style="width:100%"/>
+        </div>
+        <div>
+          <label class="label">Fecha vencimiento</label>
+          <input id="bulk-f-vencimiento" type="date" class="input" value="${nextYear}" style="width:100%"/>
+        </div>
+      </div>
+
+      <!-- Paso 2: Tabla de unidades del cliente -->
+      <div style="overflow-y:auto;flex:1;min-height:100px" id="bulk-units-wrap">
+        <div style="padding:24px;text-align:center;color:var(--text3)">
+          Selecciona un cliente para ver sus unidades
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div style="padding:12px 20px;border-top:1px solid var(--border);
+        display:flex;justify-content:space-between;align-items:center">
+        <span id="bulk-count-label" style="font-size:12px;color:var(--text3)"></span>
+        <div style="display:flex;gap:8px">
+          <button onclick="document.getElementById('cert-bulk-modal').style.display='none'"
+            class="btn sm">Cancelar</button>
+          <button onclick="emitirCertsBulk()" class="btn sm primary" id="bulk-btn-emitir" disabled>
+            Emitir certificados
+          </button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function _certBulkRender() {
+  const clienteId = document.getElementById('bulk-cliente')?.value;
+  const wrap      = document.getElementById('bulk-units-wrap');
+  const btnEmitir = document.getElementById('bulk-btn-emitir');
+  if (!clienteId || !wrap) return;
+
+  const units = _bulkUnidades.filter(u => u.cliente_id === clienteId);
+
+  if (!units.length) {
+    wrap.innerHTML = `<div style="padding:24px;text-align:center;color:var(--text3)">
+      Este cliente no tiene unidades activas asignadas.</div>`;
+    if (btnEmitir) btnEmitir.disabled = true;
+    return;
+  }
+
+  // Auto-rellenar empresa con el nombre del cliente
+  const cliente = _bulkClientes.find(c => c.id === clienteId);
+  const empInput = document.getElementById('bulk-empresa');
+  if (empInput && !empInput.value && cliente) empInput.value = cliente.name;
+
+  wrap.innerHTML = `
+    <table style="width:100%;border-collapse:collapse">
+      <thead><tr style="background:var(--bg2);font-size:11px;text-transform:uppercase;
+        letter-spacing:.5px;color:var(--text3);position:sticky;top:0">
+        <th style="padding:8px 12px;width:36px">
+          <input type="checkbox" id="bulk-chk-all" onchange="_bulkToggleAll(this)"
+            title="Seleccionar todas"/>
+        </th>
+        <th style="padding:8px 12px;text-align:left;font-weight:600">Patente</th>
+        <th style="padding:8px 12px;text-align:left;font-weight:600">IMEI</th>
+        <th style="padding:8px 12px;text-align:left;font-weight:600">Nombre</th>
+      </tr></thead>
+      <tbody>
+        ${units.map(u => `
+          <tr style="border-bottom:1px solid var(--border)"
+            onmouseenter="this.style.background='var(--bg2)'"
+            onmouseleave="this.style.background=''">
+            <td style="padding:8px 12px">
+              <input type="checkbox" class="bulk-unit-chk" data-imei="${u.imei}"
+                data-plate="${u.plate||''}" checked onchange="_bulkChkChange()"/>
+            </td>
+            <td style="padding:8px 12px;font-weight:600;font-family:monospace">${u.plate||'—'}</td>
+            <td style="padding:8px 12px;font-size:12px;color:var(--text2);font-family:monospace">${u.imei}</td>
+            <td style="padding:8px 12px;font-size:12px;color:var(--text2)">${u.name||'—'}</td>
+          </tr>`).join('')}
+      </tbody>
+    </table>`;
+
+  _bulkChkChange();
+}
+
+function _bulkToggleAll(chk) {
+  document.querySelectorAll('.bulk-unit-chk').forEach(c => c.checked = chk.checked);
+  _bulkChkChange();
+}
+
+function _bulkChkChange() {
+  const n = document.querySelectorAll('.bulk-unit-chk:checked').length;
+  const lbl = document.getElementById('bulk-count-label');
+  if (lbl) lbl.textContent = n > 0 ? `${n} unidad${n !== 1 ? 'es' : ''} seleccionada${n !== 1 ? 's' : ''}` : '';
+  const btn = document.getElementById('bulk-btn-emitir');
+  if (btn) btn.disabled = n === 0;
+  // Sincronizar checkbox cabecera
+  const all  = document.querySelectorAll('.bulk-unit-chk').length;
+  const chkAll = document.getElementById('bulk-chk-all');
+  if (chkAll) { chkAll.checked = n === all; chkAll.indeterminate = n > 0 && n < all; }
+}
+
+async function emitirCertsBulk() {
+  const empresa        = document.getElementById('bulk-empresa')?.value.trim()       || '';
+  const rut_empresa    = document.getElementById('bulk-rut-empresa')?.value.trim()   || '';
+  const firmante       = document.getElementById('bulk-firmante')?.value.trim()      || '';
+  const rut_firmante   = document.getElementById('bulk-rut-firmante')?.value.trim()  || '';
+  const fecha_emision  = document.getElementById('bulk-f-emision')?.value            || '';
+  const fecha_vencimiento = document.getElementById('bulk-f-vencimiento')?.value     || '';
+
+  if (!fecha_emision || !fecha_vencimiento)
+    return alert('Completa las fechas de emisión y vencimiento.');
+
+  const checks = [...document.querySelectorAll('.bulk-unit-chk:checked')];
+  if (!checks.length) return alert('Selecciona al menos una unidad.');
+
+  const certificados = checks.map(c => ({
+    patente: c.dataset.plate || '',
+    imei:    c.dataset.imei  || '',
+    empresa, rut_empresa, firmante, rut_firmante,
+    fecha_emision, fecha_vencimiento,
+    validez_texto: '1 año',
+  }));
+
+  const btn = document.getElementById('bulk-btn-emitir');
+  if (btn) { btn.disabled = true; btn.textContent = 'Emitiendo…'; }
+
+  try {
+    const res = await api.post('/certificados/bulk', { certificados });
+    document.getElementById('cert-bulk-modal').style.display = 'none';
+
+    let msg = `✅ ${res.created} certificado${res.created !== 1 ? 's' : ''} emitido${res.created !== 1 ? 's' : ''} correctamente.`;
+    if (res.errors?.length) msg += `\n⚠ ${res.errors.length} no pudieron emitirse.`;
+    alert(msg);
+
+    await loadCertificados();
+  } catch (e) {
+    alert('Error al emitir: ' + e.message);
+    if (btn) { btn.disabled = false; btn.textContent = 'Emitir certificados'; }
+  }
+}
+
 async function loadCertificados() {
   const wrap = document.getElementById('cert-list-wrap');
   if (!wrap) return;
@@ -2773,10 +3066,24 @@ function _renderCertTable() {
 
   wrap.innerHTML = `
     ${_certFilterBar()}
+    <div id="cert-bulk-bar" style="display:none;padding:8px 16px;margin-top:8px;
+      background:var(--bg2);border:1px solid var(--border);border-radius:8px;
+      align-items:center;gap:10px;flex-wrap:wrap">
+      <span id="cert-bulk-label" style="font-size:13px;font-weight:600;color:var(--text2)"></span>
+      <button onclick="invalidarSeleccionados()" class="btn sm amber" style="margin-left:auto">
+        🚫 Invalidar seleccionadas
+      </button>
+      <button onclick="eliminarSeleccionados()" id="cert-btn-eliminar-sel" class="btn sm danger" disabled>
+        🗑 Eliminar seleccionadas
+      </button>
+    </div>
     <div style="overflow-x:auto;margin-top:12px">
       <table style="width:100%;border-collapse:collapse;font-size:13px">
         <thead>
           <tr style="border-bottom:1px solid rgba(148,163,184,.12)">
+            <th style="padding:9px 12px;width:36px">
+              <input type="checkbox" id="cert-chk-all" onchange="_certToggleAll(this)" title="Seleccionar todas"/>
+            </th>
             ${['Patente','IMEI','Empresa','Emisión','Vencimiento','Estado','Acciones'].map(h =>
               `<th style="padding:9px 12px;text-align:left;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;white-space:nowrap">${h}</th>`
             ).join('')}
@@ -2846,6 +3153,10 @@ function _certRow(c) {
 
   return `<tr style="border-bottom:1px solid rgba(148,163,184,.07);transition:background .12s"
     onmouseenter="this.style.background='rgba(255,255,255,.02)'" onmouseleave="this.style.background=''">
+    <td style="padding:6px 10px;width:36px">
+      <input type="checkbox" class="cert-row-chk" data-id="${c.id}"
+        onchange="_certChkChange('${c.id}', this)"/>
+    </td>
     <td style="padding:10px 12px;font-weight:700;letter-spacing:.5px;font-family:monospace">${c.patente}</td>
     <td style="padding:10px 12px;color:var(--text2);font-size:12px">${c.imei}</td>
     <td style="padding:10px 12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${c.empresa||''}">${c.empresa||'–'}</td>
