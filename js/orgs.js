@@ -39,15 +39,19 @@ async function renderOrgList() {
 }
 
 async function orgNew() {
-  const id   = 'org-' + Date.now();
-  const body = { id, name: 'Nueva organización', api_url: '', color: '#34d399', field_schema: [] };
+  const localId = 'org-' + Date.now();
+  const body = { id: localId, name: 'Nueva organización', api_url: '', color: '#34d399', field_schema: [] };
   try {
-    await api.post('/destinations', body);
-    ORGS[id] = destToOrg({ ...body, field_schema: [] });
-    activeOrgId = id;
+    const resp = await api.post('/destinations', body);
+    // Usar el id real devuelto por el servidor
+    const realId = resp.id || localId;
+    ORGS[realId] = destToOrg({ ...resp, field_schema: resp.field_schema || [] });
+    activeOrgId = realId;
     await renderOrgList();
-    renderOrgEditor(id);
-  } catch (_) {}
+    renderOrgEditor(realId);
+  } catch (e) {
+    showToast('Error', 'No se pudo crear la organización: ' + (e.message || ''));
+  }
 }
 
 function _eyeBtn(targetId) {
