@@ -3352,6 +3352,18 @@ function _renderValDestinos(status, responses) {
     return;
   }
 
+  // Verificar campos faltantes por destino ──────────────────────────────────
+  // El backend marca errores con "CAMPOS_FALTANTES:" en forward_resp
+  const missingByDest = {};
+  results.forEach(r => {
+    const key = r.target || r.destination_id || '—';
+    if (r.forward_resp && r.forward_resp.startsWith('CAMPOS_FALTANTES:')) {
+      if (!missingByDest[key]) missingByDest[key] = new Set();
+      const campos = r.forward_resp.replace('CAMPOS_FALTANTES:', '').trim();
+      campos.split(', ').forEach(c => missingByDest[key].add(c));
+    }
+  });
+
   // Agrupar eventos por nombre de destino
   const grouped = {};
   results.forEach(r => {
@@ -3372,27 +3384,53 @@ function _renderValDestinos(status, responses) {
   }
 
   const buttons = targets.map(tName => {
-    const evs  = grouped[tName] || [];
-    const last = evs[0];
-    const ok   = last?.ok;
+    const evs     = grouped[tName] || [];
+    const last    = evs[0];
+    const ok      = last?.ok;
+    const missing = missingByDest[tName];
+    const hasMissing = missing && missing.size > 0;
+
+    // Si hay campos faltantes → siempre rojo independiente del estado
     let dotColor = 'var(--text3)';
-    if (ok === true)  dotColor = 'var(--green)';
-    if (ok === false) dotColor = 'var(--red)';
+    if (hasMissing)     dotColor = '#f59e0b';   // amarillo/naranja = datos incompletos
+    else if (ok === true)  dotColor = 'var(--green)';
+    else if (ok === false) dotColor = 'var(--red)';
+
     const lastTime = _timeAgo(last?.at);
-    return `
-      <button onclick="openDestModal('${tName.replace(/'/g,"\'")}', '${dotColor}')"
-        style="display:flex;align-items:center;gap:10px;padding:10px 14px;
-          border-radius:8px;border:1px solid var(--border);background:var(--bg2);
-          cursor:pointer;text-align:left;transition:border-color .15s;width:100%"
-        onmouseover="this.style.borderColor='var(--sky)'"
-        onmouseout="this.style.borderColor='var(--border)'">
-        <span style="width:9px;height:9px;border-radius:99px;background:${dotColor};flex-shrink:0;display:inline-block"></span>
-        <span style="flex:1;font-size:13px;font-weight:500;color:var(--text)">${tName}</span>
-        <span style="font-size:11px;color:var(--text3)">${lastTime}</span>
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3);flex-shrink:0">
-          <polyline points="9 18 15 12 9 6"/>
+
+    const missingAlert = hasMissing ? `
+      <div style="font-size:11px;color:#f59e0b;background:rgba(251,191,36,.1);
+        border:1px solid rgba(251,191,36,.2);border-radius:6px;
+        padding:5px 8px;margin-top:6px;display:flex;align-items:flex-start;gap:5px">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-top:1px">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+          <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
         </svg>
-      </button>`;
+        <span>Campos requeridos sin datos en la unidad:<br>
+          <strong>${[...missing].join(', ')}</strong><br>
+          <span style="color:var(--text3)">Completa los datos en Patentes / IMEI</span>
+        </span>
+      </div>` : '';
+
+    return `
+      <div>
+        <button onclick="openDestModal('${tName.replace(/'/g,"\'")}', '${dotColor}')"
+          style="display:flex;align-items:center;gap:10px;padding:10px 14px;
+            border-radius:8px;border:1px solid ${hasMissing ? 'rgba(251,191,36,.3)' : 'var(--border)'};
+            background:${hasMissing ? 'rgba(251,191,36,.05)' : 'var(--bg2)'};
+            cursor:pointer;text-align:left;transition:border-color .15s;width:100%"
+          onmouseover="this.style.borderColor='var(--sky)'"
+          onmouseout="this.style.borderColor='${hasMissing ? 'rgba(251,191,36,.3)' : 'var(--border)'}'">
+          <span style="width:9px;height:9px;border-radius:99px;background:${dotColor};flex-shrink:0;display:inline-block"></span>
+          <span style="flex:1;font-size:13px;font-weight:500;color:var(--text)">${tName}</span>
+          ${hasMissing ? `<span style="font-size:10px;background:rgba(251,191,36,.15);color:#f59e0b;border-radius:4px;padding:1px 6px;font-weight:600">Datos incompletos</span>` : ''}
+          <span style="font-size:11px;color:var(--text3)">${lastTime}</span>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3);flex-shrink:0">
+            <polyline points="9 18 15 12 9 6"/>
+          </svg>
+        </button>
+        ${missingAlert}
+      </div>`;
   }).join('');
 
   container.innerHTML = `
@@ -3417,14 +3455,17 @@ function _renderValDestinos(status, responses) {
 // ─── Abrir modal con todos los destinos (sidebar + detalle) ─────
 function openDestModalAll() {
   _openDestModalBase();
-  // Seleccionar el primero por defecto
   const targets = window._valDestinosTargets || [];
-  if (targets.length) _destModalSelectTab(targets[0]);
+  const grouped = window._valDestinosData   || {};
+  // Preferir el primero que tenga datos; si no, el primero disponible
+  const first = targets.find(t => (grouped[t]||[]).length > 0) || targets[0];
+  if (first) setTimeout(() => _destModalSelectTab(first), 50);
 }
 
 function openDestModal(tName, dotColor) {
   _openDestModalBase();
-  _destModalSelectTab(tName);
+  // Pequeño delay para que el DOM esté listo antes de seleccionar
+  setTimeout(() => _destModalSelectTab(tName), 50);
 }
 
 function _openDestModalBase() {
@@ -3534,9 +3575,16 @@ function _destModalSelectTab(tName, btnEl) {
 
   if (!evs.length) {
     body.innerHTML = `
-      <div style="text-align:center;padding:40px;color:var(--text3);font-size:13px">
-        <div style="font-size:28px;margin-bottom:8px">📭</div>
-        Sin historial registrado para <strong>${tName}</strong>
+      <div style="text-align:center;padding:48px 24px;color:var(--text3)">
+        <div style="font-size:36px;margin-bottom:12px">📡</div>
+        <div style="font-size:14px;font-weight:600;color:var(--text2);margin-bottom:6px">
+          Sin envíos registrados
+        </div>
+        <div style="font-size:12px;line-height:1.6;max-width:280px;margin:0 auto">
+          El destino <strong style="color:var(--text)">${tName}</strong> está asignado
+          a esta unidad pero aún no ha recibido datos GPS.<br>
+          Los envíos aparecerán aquí en cuanto la unidad transmita.
+        </div>
       </div>`;
     return;
   }
