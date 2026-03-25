@@ -431,6 +431,77 @@ function renderFieldsList(orgId) {
   });
 
   renderPayloadPreview(orgId);
+  _initDragSort(orgId);  // activar drag & drop
+}
+
+// ── Drag & drop nativo HTML5 para reordenar campos ────────────────
+function _initDragSort(orgId) {
+  const container = document.getElementById('fields-list-'+orgId);
+  if (!container) return;
+  let dragSrc = null;
+
+  container.querySelectorAll('[data-fid]').forEach(row => {
+    row.setAttribute('draggable', 'true');
+
+    row.addEventListener('dragstart', function(e) {
+      dragSrc = this;
+      this.style.opacity = '0.4';
+      e.dataTransfer.effectAllowed = 'move';
+    });
+
+    row.addEventListener('dragend', function() {
+      this.style.opacity = '1';
+      container.querySelectorAll('[data-fid]').forEach(r => {
+        r.style.borderTop = '';
+        r.style.borderBottom = '';
+      });
+    });
+
+    row.addEventListener('dragover', function(e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      if (this === dragSrc) return;
+      // Indicador visual
+      container.querySelectorAll('[data-fid]').forEach(r => {
+        r.style.borderTop = '';
+        r.style.borderBottom = '';
+      });
+      this.style.borderTop = '2px solid var(--sky)';
+      return false;
+    });
+
+    row.addEventListener('dragleave', function() {
+      this.style.borderTop = '';
+      this.style.borderBottom = '';
+    });
+
+    row.addEventListener('drop', function(e) {
+      e.stopPropagation();
+      e.preventDefault();
+      if (dragSrc === this) return;
+
+      // Reordenar en el modelo
+      const org    = ORGS[orgId];
+      const srcFid = dragSrc.dataset.fid;
+      const dstFid = this.dataset.fid;
+      const fields = [...(org.fields||[])].sort((a,b)=>a.order-b.order);
+      const srcIdx = fields.findIndex(f=>f.id===srcFid);
+      const dstIdx = fields.findIndex(f=>f.id===dstFid);
+      if (srcIdx < 0 || dstIdx < 0) return;
+
+      // Mover el elemento
+      const [moved] = fields.splice(srcIdx, 1);
+      fields.splice(dstIdx, 0, moved);
+
+      // Reasignar order
+      fields.forEach((f, i) => { f.order = i + 1; });
+      org.fields = fields;
+
+      _saveFieldsToAPI(orgId);
+      renderFieldsList(orgId);
+      return false;
+    });
+  });
 }
 
 // Cambio de fuente — mostrar/ocultar campo de valor fijo
@@ -487,12 +558,26 @@ function renderPayloadPreview(orgId) {
 function orgAddField(orgId) {
   const org = ORGS[orgId];
   const maxOrder = Math.max(0, ...(org.fields||[]).map(f=>f.order));
+  const newId = 'f' + Date.now();
   org.fields = [...(org.fields||[]), {
-    id: 'f'+Date.now(), apiKey: '', label: 'Nuevo campo',
+    id: newId, apiKey: '', label: 'Nuevo campo',
     source: '', fixedValue: '', type: 'text', required: false, order: maxOrder+1,
   }];
   _saveFieldsToAPI(orgId);
   renderFieldsList(orgId);
+  // Scroll al nuevo campo y focus en su input apiKey
+  setTimeout(() => {
+    const container = document.getElementById('fields-list-'+orgId);
+    if (container) {
+      container.scrollTop = container.scrollHeight;
+      // Focus en el input apiKey del último campo
+      const lastRow = container.lastElementChild;
+      if (lastRow) {
+        const inp = lastRow.querySelector('input');
+        if (inp) inp.focus();
+      }
+    }
+  }, 50);
 }
 
 function orgRemoveField(orgId, fid) {
