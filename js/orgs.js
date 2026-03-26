@@ -168,7 +168,7 @@ function _openTplMenu(btn, menuId) {
   m.style.border       = '1px solid var(--border2)';
   m.style.borderRadius = 'var(--radius)';
   m.style.boxShadow    = '0 16px 48px rgba(0,0,0,.65)';
-  m.style.minWidth     = '290px';
+  m.style.width        = '320px';
   m.style.overflow     = 'hidden';
   // Posición debajo del botón
   var r = btn.getBoundingClientRect();
@@ -445,10 +445,10 @@ function renderFieldsList(orgId) {
       <span class="drag-handle" title="Arrastrar para reordenar">⠿</span>
       <input class="input mono" style="font-size:12px" value="${escHtml(f.apiKey)}"
         placeholder="campo_json"
-        onchange="orgFieldChange('${orgId}','${f.id}','apiKey',this.value)" />
+        oninput="orgFieldChange('${orgId}','${f.id}','apiKey',this.value)" />
       <input class="input" style="font-size:12px" value="${escHtml(f.label)}"
         placeholder="Etiqueta"
-        onchange="orgFieldChange('${orgId}','${f.id}','label',this.value)" />
+        oninput="orgFieldChange('${orgId}','${f.id}','label',this.value)" />
       <div style="display:grid;gap:4px">
         <select class="input ${srcClass}" style="font-size:12px"
           onchange="orgFieldSourceChange('${orgId}','${f.id}',this.value,this)">
@@ -457,7 +457,7 @@ function renderFieldsList(orgId) {
         ${isFixed ? `
           <input class="input" style="font-size:12px" value="${escHtml(f.fixedValue||'')}"
             placeholder="Valor fijo (se envía igual a todas las unidades)"
-            onchange="orgFieldChange('${orgId}','${f.id}','fixedValue',this.value)" />
+            oninput="orgFieldChange('${orgId}','${f.id}','fixedValue',this.value)" />
         ` : ''}
       </div>
       <button class="req-toggle ${f.required?'on':''}"
@@ -609,6 +609,7 @@ function orgAddField(orgId) {
   }];
   _saveFieldsToAPI(orgId);
   renderFieldsList(orgId);
+  renderPayloadPreview(orgId);
   // Scroll al nuevo campo y focus en su input apiKey
   setTimeout(() => {
     const container = document.getElementById('fields-list-'+orgId);
@@ -628,6 +629,7 @@ function orgRemoveField(orgId, fid) {
   ORGS[orgId].fields = (ORGS[orgId].fields||[]).filter(f=>f.id!==fid);
   _saveFieldsToAPI(orgId);
   renderFieldsList(orgId);
+  renderPayloadPreview(orgId);
 }
 
 function orgFieldChange(orgId, fid, key, val) {
@@ -642,6 +644,7 @@ function orgToggleRequired(orgId, fid, btn) {
   btn.textContent = f.required ? '✓ Req' : 'Opcional';
   btn.classList.toggle('on', f.required);
   _saveFieldsToAPI(orgId);
+  renderPayloadPreview(orgId);
 }
 
 async function _saveFieldsToAPI(orgId) {
