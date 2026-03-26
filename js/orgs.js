@@ -311,7 +311,14 @@ function renderOrgEditor(id) {
             <!-- Botón Plantilla -->
             <div style="position:relative">
               <button class="btn sm" id="btn-tpl-${id}"
-                onclick="document.getElementById('tpl-menu-${id}').style.display=document.getElementById('tpl-menu-${id}').style.display==='block'?'none':'block'"
+                onclick="(function(btn){
+  var m=document.getElementById('tpl-menu-${id}');
+  if(m.style.display==='block'){m.style.display='none';return;}
+  var r=btn.getBoundingClientRect();
+  m.style.top=(r.bottom+4)+'px';
+  m.style.left=Math.max(8,r.right-290)+'px';
+  m.style.display='block';
+})(this)"
                 style="gap:5px">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
                 Plantilla
@@ -320,19 +327,24 @@ function renderOrgEditor(id) {
               <div id="tpl-menu-${id}" style="display:none;position:absolute;top:calc(100% + 4px);right:0;
                 background:var(--bg1);border:1px solid var(--border);border-radius:10px;
                 box-shadow:0 8px 24px rgba(0,0,0,.35);min-width:280px;z-index:999;overflow:hidden">
-                <div style="padding:8px 12px;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border)">
+                <div style="padding:10px 14px;font-size:11px;font-weight:700;color:var(--text2);
+                  text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);
+                  background:var(--surface)">
                   Plantillas de campos GPS
                 </div>
                 ${Object.entries(GPS_TEMPLATES).map(([key, tpl]) => `
                   <button onclick="orgApplyTemplate('${id}','${key}');document.getElementById('tpl-menu-${id}').style.display='none'"
-                    style="display:block;width:100%;text-align:left;padding:10px 14px;background:none;border:none;cursor:pointer;border-bottom:1px solid var(--border);font-family:inherit"
-                    onmouseenter="this.style.background='var(--bg2)'" onmouseleave="this.style.background=''">
+                    style="display:block;width:100%;text-align:left;padding:11px 14px;background:none;
+                      border:none;cursor:pointer;border-bottom:1px solid var(--border);font-family:inherit;
+                      transition:background .12s"
+                    onmouseenter="this.style.background='rgba(255,255,255,.06)'" onmouseleave="this.style.background=''">
                     <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:2px">${tpl.label}</div>
                     <div style="font-size:11px;color:var(--text3)">${tpl.description} · ${tpl.fields.length} campos</div>
                   </button>`).join('')}
                 <button onclick="orgClearFields('${id}');document.getElementById('tpl-menu-${id}').style.display='none'"
-                  style="display:block;width:100%;text-align:left;padding:10px 14px;background:none;border:none;cursor:pointer;font-family:inherit;color:var(--red)"
-                  onmouseenter="this.style.background='var(--bg2)'" onmouseleave="this.style.background=''">
+                  style="display:block;width:100%;text-align:left;padding:11px 14px;background:none;
+                    border:none;cursor:pointer;font-family:inherit;color:var(--red);transition:background .12s"
+                  onmouseenter="this.style.background='var(--red-dim)'" onmouseleave="this.style.background=''">
                   <div style="font-size:12px;font-weight:600">Limpiar todos los campos</div>
                 </button>
               </div>
