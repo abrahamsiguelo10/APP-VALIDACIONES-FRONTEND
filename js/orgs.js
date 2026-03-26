@@ -157,11 +157,37 @@ function escHtml(s) {
 function _openTplMenu(btn, menuId) {
   var m = document.getElementById(menuId);
   if (!m) return;
-  if (m.style.display === 'block') { m.style.display = 'none'; return; }
+  // Toggle: si ya está abierto, cerrar
+  if (m._tplOpen) { m._tplOpen = false; m.style.display = 'none'; return; }
+  // Mover al body para escapar cualquier overflow:hidden ancestro
+  document.body.appendChild(m);
+  // Estilos
+  m.style.position     = 'fixed';
+  m.style.zIndex       = '9000';
+  m.style.background   = 'var(--surface2)';
+  m.style.border       = '1px solid var(--border2)';
+  m.style.borderRadius = 'var(--radius)';
+  m.style.boxShadow    = '0 16px 48px rgba(0,0,0,.65)';
+  m.style.minWidth     = '290px';
+  m.style.overflow     = 'hidden';
+  // Posición debajo del botón
   var r = btn.getBoundingClientRect();
   m.style.top  = (r.bottom + 4) + 'px';
   m.style.left = Math.max(8, r.right - 290) + 'px';
   m.style.display = 'block';
+  m._tplOpen = true;
+  // Cerrar al hacer click fuera — usar requestAnimationFrame para evitar
+  // que el mismo evento click que abrió cierre inmediatamente
+  requestAnimationFrame(function() {
+    function _close(e) {
+      if (!m.contains(e.target) && e.target !== btn) {
+        m.style.display = 'none';
+        m._tplOpen = false;
+        document.removeEventListener('click', _close, true);
+      }
+    }
+    document.addEventListener('click', _close, true);
+  });
 }
 
 async function loadOrgsFromAPI() {
