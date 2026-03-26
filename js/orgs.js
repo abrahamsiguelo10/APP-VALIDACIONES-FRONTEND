@@ -344,15 +344,13 @@ function renderOrgEditor(id) {
           </div>
         </div>
         <div class="card-body" style="display:grid;gap:0">
-          <!-- Leyenda de categorías -->
-          <div style="display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap">
-            <span style="font-size:11px;color:var(--text3)">Tipos de fuente:</span>
-            <span style="font-size:11px;padding:1px 8px;border-radius:4px;background:rgba(56,189,248,.1);color:var(--sky)">📡 GPS — automático del dispositivo</span>
-            <span style="font-size:11px;padding:1px 8px;border-radius:4px;background:rgba(52,211,153,.1);color:var(--green)">🏢 Unidad/Cliente — de la base de datos</span>
-            <span style="font-size:11px;padding:1px 8px;border-radius:4px;background:rgba(251,191,36,.1);color:#f59e0b">✏️ Fijo — valor constante</span>
+          <div class="source-legend">
+            <span style="font-size:11px;color:var(--text3);align-self:center">Fuentes:</span>
+            <span class="source-legend-item src-gps">📡 GPS — del dispositivo</span>
+            <span class="source-legend-item src-unit">🏢 Unidad / Cliente</span>
+            <span class="source-legend-item src-fixed">✏️ Valor fijo</span>
           </div>
-          <!-- Headers -->
-          <div style="display:grid;grid-template-columns:24px 130px 120px 1fr 70px 32px;gap:6px;padding:5px 8px;margin-bottom:4px;border-bottom:1px solid var(--border)">
+          <div class="field-row-grid" style="padding:4px 6px 8px;border-bottom:1px solid var(--border);margin-bottom:2px">
             ${['','Clave API (JSON)','Etiqueta','Fuente de datos','Req.',''].map(h=>
               `<div style="font-size:10px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;color:var(--text3)">${h}</div>`
             ).join('')}
@@ -369,7 +367,7 @@ function renderOrgEditor(id) {
           <span class="badge sky">JSON que se enviará al destino</span>
         </div>
         <div class="card-body">
-          <pre id="payload-preview-${id}" style="font-family:'DM Mono',monospace;font-size:12px;color:var(--sky);background:var(--bg2);padding:14px 16px;border-radius:8px;overflow-x:auto;margin:0;line-height:1.7"></pre>
+          <pre id="payload-preview-${id}" class="payload-preview"></pre>
         </div>
       </div>
 
@@ -388,43 +386,40 @@ function renderFieldsList(orgId) {
   container.innerHTML = '';
 
   fields.forEach(f => {
-    const sourceVal  = f.source || '';
-    const isFixed    = sourceVal === 'fixed';
-    const srcInfo    = GPS_SOURCES.find(s => s.value === sourceVal);
-    const groupColor = srcInfo?.group === 'GPS' ? 'rgba(56,189,248,.15)' :
-                       srcInfo?.group === 'Unidad' ? 'rgba(52,211,153,.15)' :
-                       srcInfo?.group === 'Fijo'   ? 'rgba(251,191,36,.15)' : 'transparent';
+    const sourceVal = f.source || '';
+    const isFixed   = sourceVal === 'fixed';
+    const srcInfo   = GPS_SOURCES.find(s => s.value === sourceVal);
+    const srcClass  = srcInfo?.group === 'GPS'    ? 'src-gps'   :
+                      srcInfo?.group === 'Unidad' ? 'src-unit'  :
+                      srcInfo?.group === 'Fijo'   ? 'src-fixed' : '';
 
     const row = document.createElement('div');
     row.dataset.fid = f.id;
-    row.style.cssText = 'display:grid;grid-template-columns:24px 130px 120px 1fr 70px 32px;gap:6px;align-items:start;padding:5px 4px;border-bottom:1px solid var(--border)';
+    row.className   = 'field-row-grid';
     row.innerHTML = `
-      <span style="cursor:grab;color:var(--text3);text-align:center;padding-top:8px;font-size:13px">⠿</span>
-      <input class="input" style="font-size:12px;font-family:monospace" value="${escHtml(f.apiKey)}"
+      <span class="drag-handle" title="Arrastrar para reordenar">⠿</span>
+      <input class="input mono" style="font-size:12px" value="${escHtml(f.apiKey)}"
         placeholder="campo_json"
         onchange="orgFieldChange('${orgId}','${f.id}','apiKey',this.value)" />
       <input class="input" style="font-size:12px" value="${escHtml(f.label)}"
         placeholder="Etiqueta"
         onchange="orgFieldChange('${orgId}','${f.id}','label',this.value)" />
       <div style="display:grid;gap:4px">
-        <select class="input" style="font-size:12px;background:${groupColor}"
+        <select class="input ${srcClass}" style="font-size:12px"
           onchange="orgFieldSourceChange('${orgId}','${f.id}',this.value,this)">
           ${_buildSourceOptions(sourceVal)}
         </select>
         ${isFixed ? `
           <input class="input" style="font-size:12px" value="${escHtml(f.fixedValue||'')}"
-            placeholder="Valor constante..."
-            onchange="orgFieldChange('${orgId}','${f.id}','fixedValue',this.value)"
-            title="Este valor se enviará igual para todas las unidades" />
+            placeholder="Valor fijo (se envía igual a todas las unidades)"
+            onchange="orgFieldChange('${orgId}','${f.id}','fixedValue',this.value)" />
         ` : ''}
       </div>
-      <button style="font-size:11px;padding:4px 4px;border-radius:6px;border:1px solid var(--border);
-        background:${f.required?'rgba(56,189,248,.15)':'transparent'};
-        color:${f.required?'var(--sky)':'var(--text3)'};cursor:pointer;width:100%;margin-top:2px"
+      <button class="req-toggle ${f.required?'on':''}"
         onclick="orgToggleRequired('${orgId}','${f.id}',this)">
         ${f.required ? '✓ Req' : 'Opcional'}
       </button>
-      <button class="btn sm danger" style="padding:4px;margin-top:2px" onclick="orgRemoveField('${orgId}','${f.id}')">
+      <button class="btn sm danger" style="padding:4px" onclick="orgRemoveField('${orgId}','${f.id}')">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>`;
     container.appendChild(row);
@@ -509,9 +504,13 @@ function orgFieldSourceChange(orgId, fid, newSource, selectEl) {
   orgFieldChange(orgId, fid, 'source', newSource);
   // Actualizar color del select
   const srcInfo = GPS_SOURCES.find(s => s.value === newSource);
-  selectEl.style.background = srcInfo?.group === 'GPS'    ? 'rgba(56,189,248,.15)' :
-                               srcInfo?.group === 'Unidad' ? 'rgba(52,211,153,.15)' :
-                               srcInfo?.group === 'Fijo'   ? 'rgba(251,191,36,.15)' : 'transparent';
+  selectEl.className = selectEl.className
+    .replace(/\bsrc-\w+/g, '')
+    .trim();
+  const cls = srcInfo?.group === 'GPS'    ? 'src-gps'  :
+              srcInfo?.group === 'Unidad' ? 'src-unit' :
+              srcInfo?.group === 'Fijo'   ? 'src-fixed': '';
+  if (cls) selectEl.classList.add(cls);
   // Re-renderizar para mostrar/ocultar input de valor fijo
   renderFieldsList(orgId);
 }
@@ -595,9 +594,8 @@ function orgToggleRequired(orgId, fid, btn) {
   const f = (ORGS[orgId].fields||[]).find(f=>f.id===fid);
   if (!f) return;
   f.required = !f.required;
-  btn.textContent      = f.required ? '✓ Req' : 'Opcional';
-  btn.style.background = f.required ? 'rgba(56,189,248,.15)' : 'transparent';
-  btn.style.color      = f.required ? 'var(--sky)' : 'var(--text3)';
+  btn.textContent = f.required ? '✓ Req' : 'Opcional';
+  btn.classList.toggle('on', f.required);
   _saveFieldsToAPI(orgId);
 }
 
