@@ -153,6 +153,17 @@ function escHtml(s) {
   return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+// Función global para abrir menú de plantillas con posicionamiento dinámico
+function _openTplMenu(btn, menuId) {
+  var m = document.getElementById(menuId);
+  if (!m) return;
+  if (m.style.display === 'block') { m.style.display = 'none'; return; }
+  var r = btn.getBoundingClientRect();
+  m.style.top  = (r.bottom + 4) + 'px';
+  m.style.left = Math.max(8, r.right - 290) + 'px';
+  m.style.display = 'block';
+}
+
 async function loadOrgsFromAPI() {
   try {
     const dests = await api.get('/destinations');
@@ -311,14 +322,7 @@ function renderOrgEditor(id) {
             <!-- Botón Plantilla -->
             <div style="position:relative">
               <button class="btn sm" id="btn-tpl-${id}"
-                onclick="(function(btn){
-  var m=document.getElementById('tpl-menu-${id}');
-  if(m.style.display==='block'){m.style.display='none';return;}
-  var r=btn.getBoundingClientRect();
-  m.style.top=(r.bottom+4)+'px';
-  m.style.left=Math.max(8,r.right-290)+'px';
-  m.style.display='block';
-})(this)"
+                onclick="_openTplMenu(this,'tpl-menu-${id}')"
                 style="gap:5px">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
                 Plantilla
