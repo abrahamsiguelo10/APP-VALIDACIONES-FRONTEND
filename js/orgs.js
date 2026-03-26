@@ -172,8 +172,11 @@ function _openTplMenu(btn, menuId) {
   m.style.overflow     = 'hidden';
   // Posición debajo del botón
   var r = btn.getBoundingClientRect();
+  var menuW = 320;
+  var left = Math.min(r.right - menuW, window.innerWidth - menuW - 8);
+  left = Math.max(8, left);
   m.style.top  = (r.bottom + 4) + 'px';
-  m.style.left = Math.max(8, r.right - 290) + 'px';
+  m.style.left = left + 'px';
   m.style.display = 'block';
   m._tplOpen = true;
   // Cerrar al hacer click fuera — usar requestAnimationFrame para evitar
@@ -364,17 +367,17 @@ function renderOrgEditor(id) {
                 </div>
                 ${Object.entries(GPS_TEMPLATES).map(([key, tpl]) => `
                   <button onclick="orgApplyTemplate('${id}','${key}');document.getElementById('tpl-menu-${id}').style.display='none'"
-                    style="display:block;width:100%;text-align:left;padding:11px 14px;background:none;
+                    style="display:block;width:100%;text-align:left;padding:11px 14px;background:transparent;
                       border:none;cursor:pointer;border-bottom:1px solid var(--border);font-family:inherit;
                       transition:background .12s"
-                    onmouseenter="this.style.background='rgba(255,255,255,.06)'" onmouseleave="this.style.background=''">
+                    onmouseenter="this.style.background='rgba(255,255,255,.08)'" onmouseleave="this.style.background='transparent'">
                     <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:2px">${tpl.label}</div>
                     <div style="font-size:11px;color:var(--text3)">${tpl.description} · ${tpl.fields.length} campos</div>
                   </button>`).join('')}
                 <button onclick="orgClearFields('${id}');document.getElementById('tpl-menu-${id}').style.display='none'"
                   style="display:block;width:100%;text-align:left;padding:11px 14px;background:none;
                     border:none;cursor:pointer;font-family:inherit;color:var(--red);transition:background .12s"
-                  onmouseenter="this.style.background='var(--red-dim)'" onmouseleave="this.style.background=''">
+                  onmouseenter="this.style.background='var(--red-dim)'" onmouseleave="this.style.background='transparent'">
                   <div style="font-size:12px;font-weight:600">Limpiar todos los campos</div>
                 </button>
               </div>
