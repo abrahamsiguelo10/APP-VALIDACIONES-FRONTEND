@@ -193,6 +193,49 @@ function _openTplMenu(btn, menuId) {
   });
 }
 
+
+// ── CRUD de headers personalizados ───────────────────────────────────────────
+function orgAuthHeaderAdd(orgId) {
+  const org = ORGS[orgId];
+  if (!org) return;
+  if (!org.auth) org.auth = { type: 'custom-headers', headers: [] };
+  if (!Array.isArray(org.auth.headers)) org.auth.headers = [];
+  org.auth.headers.push({ key: '', value: '' });
+  _saveAuthToAPI(orgId);
+  renderOrgEditor(orgId);
+}
+
+function orgAuthHeaderRemove(orgId, idx) {
+  const org = ORGS[orgId];
+  if (!org?.auth?.headers) return;
+  org.auth.headers.splice(idx, 1);
+  _saveAuthToAPI(orgId);
+  renderOrgEditor(orgId);
+}
+
+function orgAuthHeaderChange(orgId, idx, field, val) {
+  const org = ORGS[orgId];
+  if (!org?.auth?.headers?.[idx]) return;
+  org.auth.headers[idx][field] = val;
+  _saveAuthToAPI(orgId);
+}
+
+
+function _renderCustomHeadersList(orgId, headers) {
+  return headers.map((h, i) => `
+    <div style="display:grid;grid-template-columns:1fr 1fr 28px;gap:6px;align-items:center">
+      <input class="input" style="font-size:12px" placeholder="Nombre del header (ej: Username)"
+        value="${escHtml(h.key||'')}"
+        oninput="orgAuthHeaderChange('${orgId}',${i},'key',this.value)" />
+      <input class="input" style="font-size:12px" placeholder="Valor"
+        value="${escHtml(h.value||'')}"
+        oninput="orgAuthHeaderChange('${orgId}',${i},'value',this.value)" />
+      <button class="btn sm danger" style="padding:4px;justify-content:center"
+        onclick="orgAuthHeaderRemove('${orgId}',${i})">✕</button>
+    </div>
+  `).join('');
+}
+
 async function loadOrgsFromAPI() {
   try {
     const dests = await api.get('/destinations');
@@ -239,13 +282,14 @@ async function orgNew() {
 function _eyeBtn(targetId) {
   return `<button type="button" onclick="(function(b){var i=document.getElementById('${targetId}');if(!i)return;var s=i.type==='password';i.type=s?'text':'password';b.style.opacity=s?'1':'.4';})(this)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:4px;color:var(--text3);display:flex;align-items:center;opacity:.4"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>`;
 }
-function _authLabel(t) { return {none:'Sin auth',bearer:'Bearer Token',basic:'Basic Auth','basic-in-body':'Basic (body)','bearer+basic':'Bearer+Basic',apikey:'API Key'}[t]||t; }
+function _authLabel(t) { return {none:'Sin auth',bearer:'Bearer Token',basic:'Basic Auth','basic-in-body':'Basic (body)','bearer+basic':'Bearer+Basic',apikey:'API Key','custom-headers':'Headers personalizados'}[t]||t; }
 function _authBadgeStyle(t) {
   if(t==='bearer')        return 'background:rgba(99,102,241,.15);color:#818cf8;border:none';
   if(t==='basic')         return 'background:rgba(52,211,153,.15);color:var(--green);border:none';
   if(t==='basic-in-body') return 'background:rgba(52,211,153,.15);color:var(--green);border:none';
   if(t==='bearer+basic')  return 'background:rgba(99,102,241,.15);color:#818cf8;border:none';
   if(t==='apikey')        return 'background:rgba(251,191,36,.15);color:#f59e0b;border:none';
+  if(t==='custom-headers') return 'background:rgba(56,189,248,.15);color:var(--sky);border:none';
   return 'background:var(--bg2);color:var(--text3);border:none';
 }
 
@@ -323,6 +367,7 @@ function renderOrgEditor(id) {
               <option value="basic-in-body" ${at==='basic-in-body'?'selected':''}>Basic Auth — body JSON (credenciales en payload)</option>
               <option value="bearer+basic"  ${at==='bearer+basic' ?'selected':''}>Bearer + Basic body (token en header + credenciales en payload)</option>
               <option value="apikey"        ${at==='apikey'       ?'selected':''}>API Key (header personalizado)</option>
+              <option value="custom-headers" ${at==='custom-headers'?'selected':''}>Headers personalizados ✦</option>
             </select>
           </div>
           <div id="oe-sect-none" style="${show('none')}">
@@ -353,6 +398,19 @@ function renderOrgEditor(id) {
             <div><label class="label">Valor</label><div style="position:relative"><input class="input mono" id="oe-auth-apikey-value" type="password" autocomplete="new-password" placeholder="tu_api_key_aqui" value="${escHtml(a.value||'')}" style="padding-right:40px"/>${_eyeBtn('oe-auth-apikey-value')}</div></div>
             <div style="grid-column:span 2" class="sub">Header: <code style="color:var(--sky);font-size:11px">&lt;header&gt;: &lt;valor&gt;</code></div>
           </div>
+
+          <!-- CUSTOM HEADERS -->
+          <div id="oe-sect-custom-headers" style="${at==='custom-headers'?'display:block':'display:none'}">
+            <div class="label" style="margin-bottom:6px">Headers HTTP personalizados</div>
+            <div style="font-size:11px;color:var(--text3);margin-bottom:10px">
+              Define los headers que requiere la API del destino (nombre y valor).
+            </div>
+            <div id="oe-ch-list-${id}" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px">
+              ${_renderCustomHeadersList(id, a.headers||[])}
+            </div>
+            <button class="btn sm primary" onclick="orgAuthHeaderAdd('${id}')">+ Agregar header</button>
+          </div>
+
         </div>
       </div>
 
@@ -679,11 +737,13 @@ function orgAuthTypeChange(id) {
   const showApikey = type === 'apikey';
   const showNone   = type === 'none';
 
+  const showCustom = type === 'custom-headers';
   const vis = {
-    none:   showNone   ? 'block' : 'none',
-    bearer: showBearer ? 'grid'  : 'none',
-    basic:  showBasic  ? 'grid'  : 'none',
-    apikey: showApikey ? 'grid'  : 'none',
+    none:           showNone   ? 'block' : 'none',
+    bearer:         showBearer ? 'grid'  : 'none',
+    basic:          showBasic  ? 'grid'  : 'none',
+    apikey:         showApikey ? 'grid'  : 'none',
+    'custom-headers': showCustom ? 'block' : 'none',
   };
   Object.entries(vis).forEach(([t, d]) => {
     const el = document.getElementById('oe-sect-'+t);
@@ -707,7 +767,12 @@ function orgAuthTypeChange(id) {
 
   // Guardar el tipo en ORGS
   if (ORGS[id]) {
-    ORGS[id].auth = { ...((ORGS[id].auth)||{}), type };
+    const prev = ORGS[id].auth || {};
+    // Si cambia a custom-headers, inicializar array de headers vacío si no existe
+    const headers = type === 'custom-headers'
+      ? (Array.isArray(prev.headers) ? prev.headers : [])
+      : prev.headers;
+    ORGS[id].auth = { ...prev, type, ...(headers !== undefined ? { headers } : {}) };
     _saveAuthToAPI(id);
   }
 }
