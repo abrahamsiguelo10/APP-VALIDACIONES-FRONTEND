@@ -317,10 +317,12 @@ function renderOrgEditor(id) {
           <div>
             <label class="label">Tipo de autenticación</label>
             <select class="input" id="oe-auth-type" style="max-width:260px" onchange="orgAuthTypeChange('${id}')">
-              <option value="none"   ${at==='none'  ?'selected':''}>Sin autenticación</option>
-              <option value="bearer" ${at==='bearer'?'selected':''}>Bearer Token</option>
-              <option value="basic"  ${at==='basic' ?'selected':''}>Basic Auth (usuario / contraseña)</option>
-              <option value="apikey" ${at==='apikey'?'selected':''}>API Key (header personalizado)</option>
+              <option value="none"          ${at==='none'         ?'selected':''}>Sin autenticación</option>
+              <option value="bearer"        ${at==='bearer'       ?'selected':''}>Bearer Token</option>
+              <option value="basic"         ${at==='basic'        ?'selected':''}>Basic Auth — header</option>
+              <option value="basic-in-body" ${at==='basic-in-body'?'selected':''}>Basic Auth — body JSON (credenciales en payload)</option>
+              <option value="bearer+basic"  ${at==='bearer+basic' ?'selected':''}>Bearer + Basic body (token en header + credenciales en payload)</option>
+              <option value="apikey"        ${at==='apikey'       ?'selected':''}>API Key (header personalizado)</option>
             </select>
           </div>
           <div id="oe-sect-none" style="${show('none')}">
