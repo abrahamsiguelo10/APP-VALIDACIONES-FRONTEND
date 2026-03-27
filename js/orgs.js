@@ -241,9 +241,11 @@ function _eyeBtn(targetId) {
 }
 function _authLabel(t) { return {none:'Sin auth',bearer:'Bearer Token',basic:'Basic Auth',apikey:'API Key'}[t]||t; }
 function _authBadgeStyle(t) {
-  if(t==='bearer') return 'background:rgba(99,102,241,.15);color:#818cf8;border:none';
-  if(t==='basic')  return 'background:rgba(52,211,153,.15);color:var(--green);border:none';
-  if(t==='apikey') return 'background:rgba(251,191,36,.15);color:#f59e0b;border:none';
+  if(t==='bearer')        return 'background:rgba(99,102,241,.15);color:#818cf8;border:none';
+  if(t==='basic')         return 'background:rgba(52,211,153,.15);color:var(--green);border:none';
+  if(t==='basic-in-body') return 'background:rgba(52,211,153,.15);color:var(--green);border:none';
+  if(t==='bearer+basic')  return 'background:rgba(99,102,241,.15);color:#818cf8;border:none';
+  if(t==='apikey')        return 'background:rgba(251,191,36,.15);color:#f59e0b;border:none';
   return 'background:var(--bg2);color:var(--text3);border:none';
 }
 
@@ -251,7 +253,14 @@ function renderOrgEditor(id) {
   const org = ORGS[id];
   if (!org) return;
   const a = org.auth || {}, at = a.type || 'none';
-  const show = t => `display:${at===t?(t==='none'?'block':'grid'):'none'}`;
+  const show = t => {
+    // basic-in-body y bearer+basic comparten el panel de basic
+    const effective = (t === 'basic' && (at === 'basic-in-body')) ? at :
+                      (t === 'bearer+basic' && at === 'bearer+basic') ? t : t;
+    const match = at === effective || at === t ||
+                  (t === 'basic' && (at === 'basic-in-body'));
+    return `display:${match?(t==='none'?'block':'grid'):'none'}`;
+  };
 
   document.getElementById('org-editor').innerHTML = `
     <div style="display:grid;gap:16px">
@@ -317,7 +326,7 @@ function renderOrgEditor(id) {
           <div id="oe-sect-none" style="${show('none')}">
             <div style="font-size:13px;color:var(--text3);padding:12px 14px;border-radius:8px;border:1px dashed var(--border)">No se enviará ningún header de autenticación.</div>
           </div>
-          <div id="oe-sect-bearer" style="${show('bearer')};gap:12px">
+          <div id="oe-sect-bearer" style="${(at==='bearer'||at==='bearer+basic')?'display:grid':'display:none'};gap:12px">
             <div>
               <label class="label">Token</label>
               <div style="position:relative">
@@ -327,10 +336,15 @@ function renderOrgEditor(id) {
               <div class="sub" style="margin-top:6px">Header: <code style="color:var(--sky);font-size:11px">Authorization: Bearer &lt;token&gt;</code></div>
             </div>
           </div>
-          <div id="oe-sect-basic" style="${show('basic')};gap:12px;grid-template-columns:1fr 1fr">
+          <div id="oe-sect-basic" style="${(at==='basic'||at==='basic-in-body'||at==='bearer+basic')?'display:grid':'display:none'};gap:12px;grid-template-columns:1fr 1fr">
             <div><label class="label">Usuario</label><input class="input" id="oe-auth-username" autocomplete="new-password" placeholder="usuario_api" value="${escHtml(a.username||'')}"/></div>
             <div><label class="label">Contraseña</label><div style="position:relative"><input class="input" id="oe-auth-password" type="password" autocomplete="new-password" placeholder="••••••••" value="${escHtml(a.password||'')}" style="padding-right:40px"/>${_eyeBtn('oe-auth-password')}</div></div>
-            <div style="grid-column:span 2" class="sub">Header: <code style="color:var(--sky);font-size:11px">Authorization: Basic base64(usuario:contraseña)</code></div>
+            <div style="grid-column:span 2" class="sub">${at==='basic-in-body'
+              ? 'Credenciales enviadas dentro del JSON del payload (no en el header)'
+              : at==='bearer+basic'
+                ? 'Credenciales en el payload + Bearer token en el header'
+                : '<code style=\'color:var(--sky);font-size:11px\'>Authorization: Basic base64(usuario:contraseña)</code>'
+            }</div>
           </div>
           <div id="oe-sect-apikey" style="${show('apikey')};gap:12px;grid-template-columns:200px 1fr">
             <div><label class="label">Nombre del header</label><input class="input mono" id="oe-auth-header" placeholder="X-Api-Key" value="${escHtml(a.header||'X-Api-Key')}"/></div>
