@@ -195,6 +195,26 @@ function _openTplMenu(btn, menuId) {
 
 
 // ── CRUD de headers personalizados ───────────────────────────────────────────
+function _refreshCustomHeadersList(orgId) {
+  const container = document.getElementById('oe-ch-list-'+orgId);
+  if (!container) return;
+  const headers = ORGS[orgId]?.auth?.headers || [];
+  container.innerHTML = _renderCustomHeadersList(orgId, headers);
+  // Foco en el último input añadido
+  const inputs = container.querySelectorAll('input');
+  if (inputs.length) inputs[inputs.length - 2]?.focus();
+}
+
+// Guarda el auth del destino (usado por las funciones de headers)
+async function _saveAuthToAPI(orgId) {
+  try {
+    const org = ORGS[orgId];
+    if (!org) return;
+    const auth = org.auth || null;
+    await api.patch('/destinations/' + orgId, { ...orgToDestPatch(org), auth });
+  } catch(_) {}
+}
+
 function orgAuthHeaderAdd(orgId) {
   const org = ORGS[orgId];
   if (!org) return;
@@ -202,7 +222,13 @@ function orgAuthHeaderAdd(orgId) {
   if (!Array.isArray(org.auth.headers)) org.auth.headers = [];
   org.auth.headers.push({ key: '', value: '' });
   _saveAuthToAPI(orgId);
-  renderOrgEditor(orgId);
+  // Re-renderizar si el contenedor no existe aún (primera vez)
+  const container = document.getElementById('oe-ch-list-'+orgId);
+  if (!container) {
+    renderOrgEditor(orgId);
+  } else {
+    _refreshCustomHeadersList(orgId);
+  }
 }
 
 function orgAuthHeaderRemove(orgId, idx) {
@@ -210,7 +236,7 @@ function orgAuthHeaderRemove(orgId, idx) {
   if (!org?.auth?.headers) return;
   org.auth.headers.splice(idx, 1);
   _saveAuthToAPI(orgId);
-  renderOrgEditor(orgId);
+  _refreshCustomHeadersList(orgId);
 }
 
 function orgAuthHeaderChange(orgId, idx, field, val) {
@@ -779,10 +805,35 @@ function orgAuthTypeChange(id) {
 
 function _readAuthFromForm() {
   const type = document.getElementById('oe-auth-type')?.value || 'none';
-  if (type==='none')   return null;
-  if (type==='bearer') return { type:'bearer', token: document.getElementById('oe-auth-token')?.value?.trim()||'' };
-  if (type==='basic')  return { type:'basic', username: document.getElementById('oe-auth-username')?.value?.trim()||'', password: document.getElementById('oe-auth-password')?.value||'' };
-  if (type==='apikey') return { type:'apikey', header: document.getElementById('oe-auth-header')?.value?.trim()||'X-Api-Key', value: document.getElementById('oe-auth-apikey-value')?.value?.trim()||'' };
+  if (type === 'none') return null;
+  if (type === 'bearer') return {
+    type: 'bearer',
+    token: document.getElementById('oe-auth-token')?.value?.trim() || '',
+  };
+  if (type === 'basic' || type === 'basic-in-body') return {
+    type,
+    username: document.getElementById('oe-auth-username')?.value?.trim() || '',
+    password: document.getElementById('oe-auth-password')?.value || '',
+  };
+  if (type === 'bearer+basic') return {
+    type: 'bearer+basic',
+    token:    document.getElementById('oe-auth-token')?.value?.trim() || '',
+    username: document.getElementById('oe-auth-username')?.value?.trim() || '',
+    password: document.getElementById('oe-auth-password')?.value || '',
+  };
+  if (type === 'apikey') return {
+    type:   'apikey',
+    header: document.getElementById('oe-auth-header')?.value?.trim() || 'X-Api-Key',
+    value:  document.getElementById('oe-auth-apikey-value')?.value?.trim() || '',
+  };
+  if (type === 'custom-headers') {
+    // Leer el array de headers desde ORGS (se mantiene en memoria al editar)
+    const orgId = activeOrgId;
+    return {
+      type: 'custom-headers',
+      headers: (ORGS[orgId]?.auth?.headers || []).filter(h => h.key),
+    };
+  }
   return null;
 }
 
