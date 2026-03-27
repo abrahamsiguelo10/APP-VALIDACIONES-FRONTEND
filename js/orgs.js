@@ -239,7 +239,7 @@ async function orgNew() {
 function _eyeBtn(targetId) {
   return `<button type="button" onclick="(function(b){var i=document.getElementById('${targetId}');if(!i)return;var s=i.type==='password';i.type=s?'text':'password';b.style.opacity=s?'1':'.4';})(this)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:4px;color:var(--text3);display:flex;align-items:center;opacity:.4"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>`;
 }
-function _authLabel(t) { return {none:'Sin auth',bearer:'Bearer Token',basic:'Basic Auth',apikey:'API Key'}[t]||t; }
+function _authLabel(t) { return {none:'Sin auth',bearer:'Bearer Token',basic:'Basic Auth','basic-in-body':'Basic (body)','bearer+basic':'Bearer+Basic',apikey:'API Key'}[t]||t; }
 function _authBadgeStyle(t) {
   if(t==='bearer')        return 'background:rgba(99,102,241,.15);color:#818cf8;border:none';
   if(t==='basic')         return 'background:rgba(52,211,153,.15);color:var(--green);border:none';
@@ -341,7 +341,7 @@ function renderOrgEditor(id) {
           <div id="oe-sect-basic" style="${(at==='basic'||at==='basic-in-body'||at==='bearer+basic')?'display:grid':'display:none'};gap:12px;grid-template-columns:1fr 1fr">
             <div><label class="label">Usuario</label><input class="input" id="oe-auth-username" autocomplete="new-password" placeholder="usuario_api" value="${escHtml(a.username||'')}"/></div>
             <div><label class="label">Contraseña</label><div style="position:relative"><input class="input" id="oe-auth-password" type="password" autocomplete="new-password" placeholder="••••••••" value="${escHtml(a.password||'')}" style="padding-right:40px"/>${_eyeBtn('oe-auth-password')}</div></div>
-            <div style="grid-column:span 2" class="sub">${at==='basic-in-body'
+            <div id="oe-basic-note" style="grid-column:span 2" class="sub">${at==='basic-in-body'
               ? 'Credenciales enviadas dentro del JSON del payload (no en el header)'
               : at==='bearer+basic'
                 ? 'Credenciales en el payload + Bearer token en el header'
@@ -670,12 +670,46 @@ async function _saveFieldsToAPI(orgId) {
 // ── Auth ──────────────────────────────────────────────────────────────────────
 function orgAuthTypeChange(id) {
   const type = document.getElementById('oe-auth-type')?.value || 'none';
-  ['none','bearer','basic','apikey'].forEach(t => {
+
+  // Determinar qué paneles mostrar según el tipo seleccionado
+  // basic-in-body → muestra el panel basic (mismos campos: usuario + contraseña)
+  // bearer+basic  → muestra bearer (token) + basic (usuario + contraseña)
+  const showBearer = type === 'bearer' || type === 'bearer+basic';
+  const showBasic  = type === 'basic'  || type === 'basic-in-body' || type === 'bearer+basic';
+  const showApikey = type === 'apikey';
+  const showNone   = type === 'none';
+
+  const vis = {
+    none:   showNone   ? 'block' : 'none',
+    bearer: showBearer ? 'grid'  : 'none',
+    basic:  showBasic  ? 'grid'  : 'none',
+    apikey: showApikey ? 'grid'  : 'none',
+  };
+  Object.entries(vis).forEach(([t, d]) => {
     const el = document.getElementById('oe-sect-'+t);
-    if (el) el.style.display = t===type ? (t==='none'?'block':'grid') : 'none';
+    if (el) el.style.display = d;
   });
+
+  // Actualizar la nota descriptiva en el panel basic según el subtipo
+  const note = document.getElementById('oe-basic-note');
+  if (note) {
+    if (type === 'basic-in-body') {
+      note.innerHTML = 'Credenciales enviadas dentro del JSON del payload (no en el header HTTP)';
+    } else if (type === 'bearer+basic') {
+      note.innerHTML = 'Usuario/contraseña van dentro del payload JSON, el token va en el header';
+    } else {
+      note.innerHTML = 'Header: <code style="color:var(--sky);font-size:11px">Authorization: Basic base64(usuario:contraseña)</code>';
+    }
+  }
+
   const badge = document.getElementById('oe-auth-badge');
   if (badge) { badge.textContent=_authLabel(type); badge.style.cssText=_authBadgeStyle(type); }
+
+  // Guardar el tipo en ORGS
+  if (ORGS[id]) {
+    ORGS[id].auth = { ...((ORGS[id].auth)||{}), type };
+    _saveAuthToAPI(id);
+  }
 }
 
 function _readAuthFromForm() {
