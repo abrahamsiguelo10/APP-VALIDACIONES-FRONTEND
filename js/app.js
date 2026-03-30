@@ -1253,7 +1253,12 @@ async function exportExcel() {
     ]);
 
     const csv = BOM + [headers, ...rows]
-      .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(';'))
+      .map((row, ri) => row.map((cell, ci) => {
+        const val = String(cell).replace(/"/g, '""');
+        // IMEI (col 0) y RUT (col 3): prefijo \t fuerza texto en Excel
+        if (ri > 0 && (ci === 0 || ci === 3) && val) return '"\t' + val + '"';
+        return '"' + val + '"';
+      }).join(';'))
       .join('\n');
 
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
