@@ -2,12 +2,10 @@
  * users.js — Gestión de usuarios conectada a la API
  * Depende de: api.js, store.js
  */
-
 /* ── Cargar y renderizar ─────────────────────────────────────── */
 async function renderUsersTable() {
   const tbody = document.getElementById('users-tbody');
   if (!tbody) return;
-
   tbody.innerHTML = `
     <tr><td colspan="4" style="text-align:center;padding:24px;color:var(--text3)">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -16,7 +14,6 @@ async function renderUsersTable() {
       </svg>
       Cargando usuarios…
     </td></tr>`;
-
   try {
     USERS = await api.get('/users');
     _paintUsersTable();
@@ -25,23 +22,18 @@ async function renderUsersTable() {
       Error al cargar usuarios.</td></tr>`;
   }
 }
-
 function _paintUsersTable() {
   const tbody       = document.getElementById('users-tbody');
   const currentUser = state.user?.username;
   if (!tbody) return;
-
   if (!USERS.length) {
     tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:32px;color:var(--text3)">
       Sin usuarios registrados.</td></tr>`;
     return;
   }
-
   tbody.innerHTML = '';
   USERS.forEach(u => {
     const isMe = u.username === currentUser;
-
-    // Badge de rol: admin fijo, custom por role_id, o Operador por defecto
     let roleBadge;
     if (u.role === 'admin') {
       roleBadge = `<span class="badge red">Administrador</span>`;
@@ -53,11 +45,9 @@ function _paintUsersTable() {
     } else {
       roleBadge = `<span class="badge sky">Operador</span>`;
     }
-
     const statusBadge = u.enabled
       ? `<span class="badge green">Activo</span>`
       : `<span class="badge amber">Inactivo</span>`;
-
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>
@@ -95,7 +85,6 @@ function _paintUsersTable() {
     tbody.appendChild(tr);
   });
 }
-
 /* ── Formulario inline ───────────────────────────────────────── */
 function openUserForm(editingId = null) {
   const form = document.getElementById('user-form-inline');
@@ -103,9 +92,6 @@ function openUserForm(editingId = null) {
   document.getElementById('uf-password').value  = '';
   document.getElementById('uf-password2').value = '';
   document.getElementById('uf-error').style.display = 'none';
-
-  // Construir opciones: roles fijos + roles custom
-  // Los roles custom usan value="custom:{id}" para distinguirlos
   const roleOptions = [
     `<option value="user">Operador</option>`,
     `<option value="admin">Administrador</option>`,
@@ -113,7 +99,6 @@ function openUserForm(editingId = null) {
     ...ROLES.map(r => `<option value="custom:${r.id}">${r.label}</option>`)
   ].join('');
   document.getElementById('uf-role').innerHTML = roleOptions;
-
   if (editingId) {
     const u = USERS.find(x => String(x.id) === String(editingId));
     if (!u) return;
@@ -121,8 +106,6 @@ function openUserForm(editingId = null) {
     document.getElementById('uf-username').disabled      = true;
     document.getElementById('uf-pass-label').textContent = 'Nueva contraseña (vacío = sin cambios)';
     document.getElementById('uf-save-btn').textContent   = 'Guardar cambios';
-
-    // Pre-seleccionar rol: custom tiene prefijo "custom:"
     if (u.role_id) {
       document.getElementById('uf-role').value = `custom:${u.role_id}`;
     } else {
@@ -135,44 +118,38 @@ function openUserForm(editingId = null) {
     document.getElementById('uf-save-btn').textContent   = 'Guardar usuario';
     document.getElementById('uf-role').value             = 'user';
   }
-
   form.style.display = 'block';
   document.getElementById('uf-username').focus();
 }
-
 function closeUserForm() {
   document.getElementById('user-form-inline').style.display = 'none';
   document.getElementById('uf-username').disabled = false;
 }
-
 function showUfError(msg) {
   const el = document.getElementById('uf-error');
   el.textContent   = msg;
   el.style.display = 'block';
 }
-
 /* ── Guardar usuario (crear o editar) ────────────────────────── */
 async function saveUser() {
   const editingId  = document.getElementById('uf-editing').value;
   const username   = document.getElementById('uf-username').value.trim().toLowerCase();
-  const roleValue  = document.getElementById('uf-role').value; // "user" | "admin" | "custom:xxx"
+  const roleValue  = document.getElementById('uf-role').value;
   const pass1      = document.getElementById('uf-password').value;
   const pass2      = document.getElementById('uf-password2').value;
   const btn        = document.getElementById('uf-save-btn');
-
   document.getElementById('uf-error').style.display = 'none';
 
-  // Resolver role y role_id a partir del valor del select
   let role, role_id;
   if (roleValue.startsWith('custom:')) {
-    role    = 'user';                        // sigue siendo 'user' en BD
+    role    = 'user';
     role_id = roleValue.replace('custom:', '');
   } else {
-    role    = roleValue;                     // 'admin' o 'user'
+    role    = roleValue;
     role_id = null;
   }
 
-  // Validaciones
+  // Validaciones frontend
   if (!editingId && !username)
     return showUfError('El nombre de usuario es requerido.');
   if (!editingId && !/^[a-z0-9_]{3,32}$/.test(username))
@@ -184,6 +161,13 @@ async function saveUser() {
   if (pass1 && pass1 !== pass2)
     return showUfError('Las contraseñas no coinciden.');
 
+  // ── Validación de duplicado local (sin ir al servidor) ─────────────
+  if (!editingId) {
+    const alreadyExists = USERS.some(u => u.username.toLowerCase() === username.toLowerCase());
+    if (alreadyExists)
+      return showUfError(`El usuario "${username}" ya existe. Elige otro nombre.`);
+  }
+
   btn.disabled    = true;
   btn.textContent = 'Guardando…';
 
@@ -192,29 +176,31 @@ async function saveUser() {
       const body = { role, role_id };
       if (pass1) body.password = pass1;
       await api.patch(`/users/${editingId}`, body);
-      showToast('Usuario actualizado', `"${username}" guardado correctamente.`);
+      showToast('Usuario actualizado', `Cambios guardados correctamente.`);
     } else {
       await api.post('/users', { username, password: pass1, role, role_id });
       showToast('Usuario creado', `"${username}" agregado correctamente.`);
     }
     closeUserForm();
     await renderUsersTable();
-  } catch (_) {
-    // El toast de error ya lo mostró api.js
+  } catch (err) {
+    // Capturar error 409 del servidor (usuario duplicado a nivel de BD)
+    const msg = err?.message || '';
+    if (msg.includes('ya existe') || msg.includes('duplicate') || msg.includes('409')) {
+      showUfError(`El usuario "${username}" ya existe. Elige otro nombre.`);
+    }
+    // El toast de error genérico ya lo mostró api.js
   } finally {
     btn.disabled    = false;
     btn.textContent = editingId ? 'Guardar cambios' : 'Guardar usuario';
   }
 }
-
 function editUser(id) { openUserForm(id); }
-
 /* ── Toggle activar/desactivar ───────────────────────────────── */
 async function toggleUserActive(id) {
   const u = USERS.find(x => String(x.id) === String(id));
   if (!u) return;
   if (u.username === state.user?.username) return;
-
   try {
     const updated = await api.patch(`/users/${id}/toggle`, {});
     const status  = updated.enabled ? 'activado' : 'desactivado';
