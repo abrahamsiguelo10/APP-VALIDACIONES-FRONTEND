@@ -760,6 +760,8 @@ function updateDeleteBtn() {
   const anyChecked = !!document.querySelector('.row-chk:checked');
   const btn = document.getElementById('btn-delete-selected');
   if (btn) btn.disabled = !anyChecked;
+  const toggleBtn = document.getElementById('btn-toggle-selected');
+  if (toggleBtn) toggleBtn.disabled = !anyChecked;
   const all  = document.querySelectorAll('.row-chk');
   const chkd = document.querySelectorAll('.row-chk:checked');
   const hdr  = document.getElementById('chk-all');
@@ -1291,6 +1293,48 @@ async function toggleUnit(imei, btn) {
     btn.disabled = false;
   }
 }
+
+async function toggleSelected() {
+  const checked = [...document.querySelectorAll('.row-chk:checked')];
+  if (!checked.length) return;
+
+  const imeis = checked.map(el => el.dataset.imei);
+
+  // Si la mayoría están activas → desactivar todo, si no → activar todo
+  const activeCount = imeis.filter(imei => _adminUnits.find(u => u.imei === imei)?.enabled).length;
+  const activate    = activeCount <= imeis.length / 2;
+  const action      = activate ? 'Activar' : 'Desactivar';
+
+  if (!confirm(`¿${action} ${imeis.length} unidad${imeis.length > 1 ? 'es' : ''}?`)) return;
+
+  const btn = document.getElementById('btn-toggle-selected');
+  btn.disabled    = true;
+  btn.textContent = activate ? 'Activando…' : 'Desactivando…';
+
+  let ok = 0, fail = 0;
+  await Promise.allSettled(imeis.map(async imei => {
+    try {
+      const unit = _adminUnits.find(u => u.imei === imei);
+      // Solo llamar toggle si el estado actual es diferente al deseado
+      if (!unit || unit.enabled === activate) {
+        ok++; return; // ya tiene el estado correcto
+      }
+      const updated = await api.patch('/units/' + imei + '/toggle', {});
+      if (unit) unit.enabled = updated.enabled;
+      ok++;
+    } catch (_) { fail++; }
+  }));
+
+  const verb = activate ? 'activada' : 'desactivada';
+  const msg  = fail
+    ? `${ok} ${verb}${ok !== 1 ? 's' : ''}, ${fail} fallaron`
+    : `${ok} unidad${ok !== 1 ? 'es' : ''} ${verb}${ok !== 1 ? 's' : ''}`;
+  showToast(activate ? '✅ Activadas' : '🚫 Desactivadas', msg);
+
+  _paintAdminTable(_adminUnits);
+  filterAdminTable();
+}
+
 async function deleteSelected() {
   const checked = [...document.querySelectorAll('.row-chk:checked')];
   if (!checked.length) return;
@@ -1638,12 +1682,20 @@ function _abrirModalSinDestino(units) {
 }
 
 function _irAPatenteBuscar(plate) {
-  document.getElementById('modal-sin-destino').style.display = 'none';
+  // Cerrar el modal si existe (puede no estar en el DOM si ya se cerró)
+  const modal = document.getElementById('modal-sin-destino');
+  if (modal) modal.style.display = 'none';
+  // Cerrar también cualquier overlay genérico
+  document.querySelectorAll('.modal-overlay').forEach(m => m.style.display = 'none');
   navigate('patentes');
   setTimeout(() => {
     const inp = document.getElementById('admin-search');
-    if (inp) { inp.value = plate; filterAdminTable(); }
-  }, 600);
+    if (inp) {
+      inp.value = plate;
+      inp.dispatchEvent(new Event('input'));  // disparar filtro
+      filterAdminTable();
+    }
+  }, 400);
 }
 
 let _pendingDestFilter = null;
@@ -2288,6 +2340,12 @@ async function saveUser() {
     errEl.textContent = 'Las contraseñas no coinciden.';
     errEl.style.display = '';
     return;
+  }
+
+  // Verificar duplicado localmente antes de ir al servidor (más rápido)
+  if (!editingId) {
+    const alreadyExists = USERS.some(u => u.username.toLowerCase() === username.toLowerCase());
+    if (alreadyExists) return showUfError(`El usuario "${username}" ya existe. Elige otro nombre.`);
   }
 
   btn.disabled    = true;
