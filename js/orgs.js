@@ -206,6 +206,11 @@ function _refreshCustomHeadersList(orgId) {
 }
 
 // Guarda el auth del destino (usado por las funciones de headers)
+
+function orgDriverChange(orgId, val) {
+  if (ORGS[orgId]) ORGS[orgId].driverSlug = val.trim().toLowerCase() || null;
+}
+
 async function _saveAuthToAPI(orgId) {
   try {
     const org = ORGS[orgId];
@@ -358,6 +363,16 @@ function renderOrgEditor(id) {
             <div>
               <label class="label">Color</label>
               <input type="color" class="input" id="oe-color" value="${org.color||'#38bdf8'}" style="padding:4px;height:38px;cursor:pointer" />
+            </div>
+            <div>
+              <label class="label" style="display:flex;align-items:center;gap:6px">
+                Driver
+                <span style="font-size:10px;color:var(--text3);font-weight:400">opcional — para integraciones con lógica especial</span>
+              </label>
+              <input class="input mono" id="oe-driver" value="${escHtml(org.driverSlug||'')}"
+                placeholder="ej: bermann, skynav (vacío = field_schema genérico)"
+                style="font-size:12px"
+                oninput="orgDriverChange('${id}', this.value)" />
             </div>
           </div>
           <div style="display:flex;align-items:center;gap:10px">
@@ -852,9 +867,10 @@ async function orgSaveMeta(id) {
   const auth=_readAuthFromForm();
   if (!nameVal) { showToast('Error','El nombre no puede estar vacío.'); return; }
   const authErr=_validateAuth(auth); if (authErr) { showToast('Error',authErr); return; }
-  ORGS[id].name=nameVal; ORGS[id].apiUrl=urlVal||''; ORGS[id].color=colorVal||'#38bdf8'; ORGS[id].auth=auth;
+  const driverVal = document.getElementById('oe-driver')?.value.trim().toLowerCase() || null;
+  ORGS[id].name=nameVal; ORGS[id].apiUrl=urlVal||''; ORGS[id].color=colorVal||'#38bdf8'; ORGS[id].auth=auth; ORGS[id].driverSlug=driverVal||null;
   try {
-    await api.patch(`/destinations/${id}`, { ...orgToDestPatch(ORGS[id]), auth });
+    await api.patch(`/destinations/${id}`, { ...orgToDestPatch(ORGS[id]), auth, driver_slug: ORGS[id].driverSlug || null });
     const fb=document.getElementById('oe-save-feedback');
     if (fb) { fb.style.display='flex'; clearTimeout(fb._timer); fb._timer=setTimeout(()=>fb.style.display='none',2500); }
     showToast('Guardado',`"${nameVal}" actualizado.`);
