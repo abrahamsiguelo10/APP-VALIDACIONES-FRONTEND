@@ -40,11 +40,12 @@ function destToOrg(dest) {
     try { auth = JSON.parse(auth); } catch (_) { auth = null; }
   }
   return {
-    name:   dest.name,
-    apiUrl: dest.api_url ?? '',
-    color:  dest.color   ?? '#38bdf8',
+    name:       dest.name,
+    apiUrl:     dest.api_url   ?? '',
+    color:      dest.color     ?? '#38bdf8',
     fields,
     auth,
+    driverSlug: dest.driver_slug ?? null,
   };
 }
 
@@ -54,8 +55,9 @@ function destToOrg(dest) {
 function orgToDestPatch(org) {
   return {
     name:         org.name,
-    api_url:      org.apiUrl || null,
-    color:        org.color  || '#38bdf8',
-    field_schema: org.fields || [],
+    api_url:      org.apiUrl      || null,
+    color:        org.color       || '#38bdf8',
+    field_schema: org.fields      || [],
+    driver_slug:  org.driverSlug  || null,
   };
 }
