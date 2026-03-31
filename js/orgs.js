@@ -35,7 +35,8 @@ const GPS_SOURCES = [
   { value: 'odometro',       label: 'Odómetro',                         group: 'GPS' },
 
   // ── Datos de la unidad (de la DB de Síguelo) ──
-  { value: 'unit_plate',     label: 'Patente de la unidad',             group: 'Unidad' },
+  { value: 'unit_plate',       label: 'Patente de la unidad',                    group: 'Unidad' },
+  { value: 'unit_plate_guion', label: 'Patente de la unidad (con guión AA-BB-12)', group: 'Unidad' },
   { value: 'unit_imei',      label: 'IMEI de la unidad',                group: 'Unidad' },
   { value: 'unit_name',      label: 'Nombre de la unidad',              group: 'Unidad' },
   { value: 'unit_rut',       label: 'RUT de la unidad',                 group: 'Unidad' },
@@ -698,7 +699,7 @@ function renderPayloadPreview(orgId) {
     fecha_chile: (() => { const d=new Date(new Date().toLocaleString('en-US',{timeZone:'America/Santiago'})),p=n=>String(n).padStart(2,'0'); return `${p(d.getDate())}-${p(d.getMonth()+1)}-${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`; })(),
     fecha_chile_iso: (() => { const d=new Date(new Date().toLocaleString('en-US',{timeZone:'America/Santiago'})),p=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`; })(),
     alt: 1250.5, sats: 14, hdop: 0.8, odometro: 104999,
-    unit_plate: 'TDCD29', unit_imei: '869671077365722',
+    unit_plate: 'TDCD29', unit_plate_guion: 'TD-CD-29', unit_imei: '869671077365722',
     unit_name:  'Simantec', unit_rut: '76.123.456-7',
     cliente_nombre: 'Minera Los Pelambres', cliente_rut: '96.521.450-1',
   };
