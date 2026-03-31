@@ -21,6 +21,7 @@ const GPS_SOURCES = [
   { value: 'heading',        label: 'Dirección / Heading (°)',          group: 'GPS' },
   { value: 'ignition',       label: 'Ignición (true/false)',            group: 'GPS' },
   { value: 'ignition01',     label: 'Ignición (0 / 1)',                 group: 'GPS' },
+  { value: 'skynav_evento',  label: 'Evento Skynav (41/42/51/52)',      group: 'GPS' },
   { value: 'wialon_ts',      label: 'Timestamp ISO 8601',               group: 'GPS' },
   { value: 'fecha_hora',     label: 'Fecha/Hora (DD-MM-YYYY HH:MM:SS)',  group: 'GPS' },
   { value: 'fecha_slash',    label: 'Fecha/Hora (DD/MM/YYYY HH:MM:SS)',  group: 'GPS' },
@@ -686,7 +687,7 @@ function renderPayloadPreview(orgId) {
 
   const EXAMPLE = {
     lat: -32.8415, lon: -71.2148, speed: 85, heading: 270,
-    ignition: true, ignition01: 1, wialon_ts: new Date().toISOString(),
+    ignition: true, ignition01: 1, skynav_evento: 41, wialon_ts: new Date().toISOString(),
     fecha_hora:  (() => { const d=new Date(),p=n=>String(n).padStart(2,'0'); return `${p(d.getDate())}-${p(d.getMonth()+1)}-${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`; })(),
     fecha_slash: (() => { const d=new Date(),p=n=>String(n).padStart(2,'0'); return `${p(d.getDate())}/${p(d.getMonth()+1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`; })(),
     fecha_utc_off: (() => { const d=new Date(),p=n=>String(n).padStart(2,'0'); return `${d.getUTCFullYear()}-${p(d.getUTCMonth()+1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())} +00:00`; })(),
