@@ -184,12 +184,14 @@ async function saveUser() {
     closeUserForm();
     await renderUsersTable();
   } catch (err) {
-    // Capturar error 409 del servidor (usuario duplicado a nivel de BD)
     const msg = err?.message || '';
     if (msg.includes('ya existe') || msg.includes('duplicate') || msg.includes('409')) {
       showUfError(`El usuario "${username}" ya existe. Elige otro nombre.`);
+    } else if (msg.includes('Rol inválido') || msg.includes('400')) {
+      showUfError('Rol inválido. Verifica la selección.');
+    } else if (msg) {
+      showUfError(msg);
     }
-    // El toast de error genérico ya lo mostró api.js
   } finally {
     btn.disabled    = false;
     btn.textContent = editingId ? 'Guardar cambios' : 'Guardar usuario';
