@@ -346,8 +346,7 @@ function _renderValGps({ status, responses }) {
   } else {
     gpsBadge.textContent = 'Sin transmisión';
   gpsBadge.className   = 'badge red';
-  document.getElementById('res-ping').textContent = status.tcpLastAt
-  ? new Date(status.tcpLastAt).toLocaleString('es-CL') : '–';
+  document.getElementById('res-ping').textContent     = '–';
   document.getElementById('res-speed').textContent    = '–';
   document.getElementById('res-ignition').textContent = '–';
   }
@@ -355,15 +354,16 @@ function _renderValGps({ status, responses }) {
   // — Destinos: siempre al final, independiente del estado GPS —
   _renderValDestinos(status, responses);
 
-  // — Último dato de posición —
+  // — Último dato de posición — solo mostrar si hay transmisión activa —
   const results = responses?.results || [];
   const lastWithTx = results.find(r => r.tx?.lat && r.tx?.lon);
 
-  if (lastWithTx?.tx) {
+  if (status?.isTransmitting && lastWithTx?.tx) {
     const tx = lastWithTx.tx;
     document.getElementById('res-speed').textContent    = tx.speed != null ? `${tx.speed} km/h` : '–';
     document.getElementById('res-ignition').textContent = tx.ignition ? '🟢 Encendida' : '🔴 Apagada';
-  } else {
+  } else if (!status?.isTransmitting) {
+    // Sin transmisión — limpiar datos de velocidad e ignición
     document.getElementById('res-speed').textContent    = '–';
     document.getElementById('res-ignition').textContent = '–';
   }
