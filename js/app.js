@@ -346,7 +346,8 @@ function _renderValGps({ status, responses }) {
   } else {
     gpsBadge.textContent = 'Sin transmisión';
   gpsBadge.className   = 'badge red';
-  document.getElementById('res-ping').textContent     = '–';
+  document.getElementById('res-ping').textContent = status.tcpLastAt
+  ? new Date(status.tcpLastAt).toLocaleString('es-CL') : '–';
   document.getElementById('res-speed').textContent    = '–';
   document.getElementById('res-ignition').textContent = '–';
   }
