@@ -36,6 +36,7 @@ const GPS_SOURCES = [
   { value: 'fecha_gmt',        label: 'Fecha/Hora UTC GMT (YYYY-MM-DD HH:MM:SS GMT)',          group: 'GPS' },
   { value: 'numero_actividad', label: 'Número de actividad único (timestamp + IMEI)',          group: 'GPS' },
   { value: 'sitrack_evento',   label: 'Evento Sitrack (163=IgnON / 164=IgnOFF / 2=Normal)',   group: 'GPS' },
+  { value: 'timezone_chile',   label: 'Timezone Chile (America/Santiago)',                     group: 'GPS' },
 
   // ── Datos de la unidad (de la DB de Síguelo) ──
   { value: 'unit_plate',       label: 'Patente de la unidad',                    group: 'Unidad' },
@@ -98,6 +99,21 @@ const GPS_TEMPLATES = {
       { apiKey: 'numero_actividad', label: 'N° actividad (único)',  source: 'numero_actividad', required: true  },
       { apiKey: 'codigo_evento',    label: 'Código evento',         source: 'fixed', fixedValue: '1',        required: true  },
       { apiKey: 'nombre_evento',    label: 'Nombre evento',         source: 'fixed', fixedValue: 'Posicion', required: true  },
+    ],
+  },
+  gotruck: {
+    label:       'GoTruck',
+    description: 'Telemetría GPS para plataforma GoTruck',
+    fields: [
+      { apiKey: 'licenseplate', label: 'Patente',          source: 'unit_plate',     required: true  },
+      { apiKey: 'lat',          label: 'Latitud',          source: 'lat',            required: true  },
+      { apiKey: 'lng',          label: 'Longitud',         source: 'lon',            required: true  },
+      { apiKey: 'created',      label: 'Fecha/Hora',       source: 'fecha_chile_iso',required: true  },
+      { apiKey: 'timezone',     label: 'Timezone',         source: 'timezone_chile', required: true  },
+      { apiKey: 'course',       label: 'Dirección (°)',    source: 'heading',        required: false },
+      { apiKey: 'speed',        label: 'Velocidad',        source: 'speed',          required: false },
+      { apiKey: 'ignition',     label: 'Ignición (0/1)',   source: 'ignition01',     required: false },
+      { apiKey: 'odometer',     label: 'Odómetro',        source: 'odometro',       required: false },
     ],
   },
   sitrack_blueexpress: {
