@@ -1015,7 +1015,6 @@ document.getElementById('excel-file').addEventListener('change', e => {
 });
 
 /* ── Parsear archivo → array de objetos ──────────────────────── */
-/* ── Parsear archivo → array de objetos (Versión Corregida) ──────────────────────── */
 async function _parseImportFile() {
   const file = document.getElementById('excel-file').files?.[0];
   if (!file) return [];
@@ -1027,69 +1026,43 @@ async function _parseImportFile() {
     reader.onload = e => {
       try {
         const XLSX = window.XLSX;
-        const wb = isCsv
+        const wb   = isCsv
           ? XLSX.read(e.target.result, { type: 'string' })
           : XLSX.read(e.target.result, { type: 'binary' });
 
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        // Importante: sheet_to_json puede ser caprichoso con filas vacías
-        const rows = XLSX.utils.sheet_to_json(ws, { defval: '', raw: false });
+        const ws   = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
 
         const normalized = rows.map(row => {
           const r = {};
-          // Normalizamos TODAS las llaves: minúsculas, sin espacios y sin acentos básicos
-          Object.keys(row).forEach(k => {
-            const cleanKey = k.toLowerCase()
-              .trim()
-              .normalize("NFD")
-              .replace(/[\u0300-\u036f]/g, ""); // Quita acentos (ó -> o)
-            r[cleanKey] = String(row[k]).trim();
-          });
-
+          Object.keys(row).forEach(k => { r[k.toLowerCase().trim()] = String(row[k]).trim(); });
+          // Leer todas las columnas "Integración N" como array de destinos
           const destinos = [];
-          
-          // 1. Intentar capturar columnas de destino/org directas (variaciones comunes)
-          const posiblesColumnasDestino = [
-            'destino', 'destinos', 'organizacion', 'organizaciones', 
-            'org', 'empresa', 'integracion'
-          ];
-          
-          posiblesColumnasDestino.forEach(col => {
-            if (r[col]) destinos.push(r[col]);
-          });
-
-          // 2. Leer columnas numeradas: "Integracion 1", "Destino 2", etc.
-          // Buscamos cualquier llave que contenga el número y palabras clave
-          Object.keys(r).forEach(key => {
-            if (
-              (key.includes('integracion') || key.includes('destino') || key.includes('org')) && 
-              /\d/.test(key) // Si tiene un número
-            ) {
-              if (r[key]) destinos.push(r[key]);
-            }
-          });
-
+          if (r['destino'])      destinos.push(r['destino']);
+          if (r['organización']) destinos.push(r['organización']);
+          if (r['organizacion']) destinos.push(r['organizacion']);
+          if (r['org'])          destinos.push(r['org']);
+          let i = 1;
+          while (true) {
+            const d = r[`integración ${i}`] || r[`integracion ${i}`] || r[`integration ${i}`];
+            if (!d) break;
+            destinos.push(d);
+            i++;
+          }
           return {
-            imei:     r['imei'] || '',
+            imei:     r['imei']    || '',
             plate:    r['patente'] || r['plate'] || r['placa'] || '',
-            cliente:  r['cliente'] || r['nombre cliente'] || r['cliente_nombre'] || r['nombre'] || '',
+            cliente:  r['cliente'] || r['nombre cliente'] || r['cliente_nombre'] || '',
             rut:      r['rut cliente'] || r['rut_cliente'] || r['rut'] || '',
-            // Limpieza final: quitar duplicados, nulos y espacios
-            destinos: [...new Set(destinos.map(d => d.trim()).filter(Boolean))],
+            destinos: [...new Set(destinos.filter(Boolean))],
           };
-        }).filter(r => r.imei && r.imei.length > 5); // Filtro de seguridad para filas vacías
+        }).filter(r => r.imei);
 
         resolve(normalized);
       } catch (err) {
-        console.error("Error en el parseo:", err);
         reject(err);
       }
     };
-
-    reader.onerror = reject;
-    isCsv ? reader.readAsText(file, 'UTF-8') : reader.readAsBinaryString(file);
-  });
-}
 
     reader.onerror = reject;
     isCsv ? reader.readAsText(file, 'UTF-8') : reader.readAsBinaryString(file);
