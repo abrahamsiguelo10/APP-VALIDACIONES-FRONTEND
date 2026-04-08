@@ -1031,11 +1031,20 @@ async function _parseImportFile() {
           : XLSX.read(e.target.result, { type: 'binary' });
 
         const ws   = wb.Sheets[wb.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+        // Leer con raw:false para que SheetJS formatee los números como texto
+        // Esto evita que IMEIs de 15 dígitos se conviertan a notación científica
+        const rows = XLSX.utils.sheet_to_json(ws, { defval: '', raw: false });
 
         const normalized = rows.map(row => {
           const r = {};
-          Object.keys(row).forEach(k => { r[k.toLowerCase().trim()] = String(row[k]).trim(); });
+          Object.keys(row).forEach(k => {
+            let v = row[k];
+            // Si el valor parece notación científica (ej: 3.59E+16), convertir a entero exacto
+            if (typeof v === 'string' && /^\d+\.?\d*[eE][+\-]?\d+$/.test(v.trim())) {
+              try { v = BigInt(Math.round(parseFloat(v))).toString(); } catch (_) {}
+            }
+            r[k.toLowerCase().trim()] = String(v ?? '').trim();
+          });
           // Leer todas las columnas "Integración N" como array de destinos
           const destinos = [];
           if (r['destino'])      destinos.push(r['destino']);
