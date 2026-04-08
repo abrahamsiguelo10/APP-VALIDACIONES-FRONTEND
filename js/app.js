@@ -1130,16 +1130,17 @@ async function importExcel() {
       }))
     });
 
-    // ── PASO 2: Pre-crear todas las orgs necesarias (secuencial para evitar duplicados) ──
+    // ── PASO 2: Mapear destinos reales de la BD por nombre ──
     const unitsWithDests = _importData.filter(u => u.destinos?.length);
 
     if (unitsWithDests.length) {
       btn.textContent = 'Preparando organizaciones…';
 
-      // Mapa nombre → id con las orgs existentes
+      // Cargar destinos reales desde la API (no usar ORGS que son plantillas)
+      const destListReal = await api.get('/destinations').catch(() => []);
       const orgByName = {};
-      Object.entries(ORGS).forEach(([id, org]) => {
-        orgByName[org.name.toLowerCase().trim()] = id;
+      (destListReal || []).forEach(d => {
+        orgByName[d.name.toLowerCase().trim()] = String(d.id);
       });
 
       // Recolectar todos los nombres de destinos únicos del archivo
@@ -1147,10 +1148,10 @@ async function importExcel() {
         unitsWithDests.flatMap(u => u.destinos).map(d => d.trim()).filter(Boolean)
       )];
 
-      // Crear secuencialmente las que no existen (evita duplicados por paralelismo)
+      // Crear secuencialmente los que no existen en la BD (evita duplicados por paralelismo)
       for (const destNombre of allDestNames) {
         const key = destNombre.toLowerCase().trim();
-        if (orgByName[key]) continue; // ya existe, saltar
+        if (orgByName[key]) continue; // ya existe en la BD, saltar
 
         try {
           const newId   = 'org-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
@@ -1161,8 +1162,7 @@ async function importExcel() {
             color:        '#38bdf8',
             field_schema: [],
           });
-          ORGS[newId] = destToOrg(newDest);
-          orgByName[key] = newId;
+          orgByName[key] = String(newDest.id || newId);
         } catch (_) {}
       }
 
