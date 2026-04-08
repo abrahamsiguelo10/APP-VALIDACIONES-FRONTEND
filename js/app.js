@@ -1039,9 +1039,10 @@ async function _parseImportFile() {
           const r = {};
           Object.keys(row).forEach(k => {
             let v = row[k];
-            // Si el valor parece notación científica (ej: 3.59E+16), convertir a entero exacto
-            if (typeof v === 'string' && /^\d+\.?\d*[eE][+\-]?\d+$/.test(v.trim())) {
-              try { v = BigInt(Math.round(parseFloat(v))).toString(); } catch (_) {}
+            // Si el valor parece notación científica (ej: 3.59E+16 o 3,59E+14), convertir a entero exacto
+            // Excel español usa coma decimal → normalizar a punto antes de parsear
+            if (typeof v === 'string' && /^[\d]+[,.]?\d*[eE][+\-]?\d+$/.test(v.trim())) {
+              try { v = BigInt(Math.round(parseFloat(v.replace(',', '.')))).toString(); } catch (_) {}
             }
             r[k.toLowerCase().trim()] = String(v ?? '').trim();
           });
