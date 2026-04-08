@@ -38,6 +38,8 @@ const GPS_SOURCES = [
   { value: 'sitrack_evento',   label: 'Evento Sitrack (163=IgnON / 164=IgnOFF / 2=Normal)',   group: 'GPS' },
   { value: 'timezone_chile',   label: 'Timezone Chile (America/Santiago)',                     group: 'GPS' },
   { value: 'wialon_ts_offset', label: 'Fecha/Hora Chile con offset (YYYY-MM-DDTHH:MM:SS-0400)', group: 'GPS' },
+  { value: 'unix_timestamp',   label: 'Timestamp Unix en segundos (epoch)',                         group: 'GPS' },
+  { value: 'moving',           label: 'En movimiento (true/false según velocidad > 0)',              group: 'GPS' },
 
   // ── Datos de la unidad (de la DB de Síguelo) ──
   { value: 'unit_plate',       label: 'Patente de la unidad',                    group: 'Unidad' },
@@ -100,6 +102,24 @@ const GPS_TEMPLATES = {
       { apiKey: 'numero_actividad', label: 'N° actividad (único)',  source: 'numero_actividad', required: true  },
       { apiKey: 'codigo_evento',    label: 'Código evento',         source: 'fixed', fixedValue: '1',        required: true  },
       { apiKey: 'nombre_evento',    label: 'Nombre evento',         source: 'fixed', fixedValue: 'Posicion', required: true  },
+    ],
+  },
+  project44: {
+    label:       'project44',
+    description: 'Telematics PUSH Server project44 — Europa/APAC/LatAm o Norteamérica',
+    fields: [
+      { apiKey: 'owner_id',           label: 'Owner ID (asignado por p44)', source: 'fixed',          fixedValue: '', required: true  },
+      { apiKey: 'device_id',          label: 'Device ID (IMEI)',            source: 'unit_imei',                       required: true  },
+      { apiKey: 'license_plate',      label: 'Patente',                     source: 'unit_plate',                      required: true  },
+      { apiKey: 'position.latitude',  label: 'Latitud',                     source: 'lat',                             required: true  },
+      { apiKey: 'position.longitude', label: 'Longitud',                    source: 'lon',                             required: true  },
+      { apiKey: 'timestamp',          label: 'Timestamp Unix (segundos)',   source: 'unix_timestamp',                  required: true  },
+      { apiKey: 'speed',              label: 'Velocidad (km/h)',            source: 'speed',                           required: false },
+      { apiKey: 'direction',          label: 'Dirección (°)',               source: 'heading',                         required: false },
+      { apiKey: 'altitude',           label: 'Altitud (m)',                 source: 'alt',                             required: false },
+      { apiKey: 'odometer',           label: 'Odómetro (km)',               source: 'odometro',                        required: false },
+      { apiKey: 'moving',             label: 'En movimiento',               source: 'moving',                          required: false },
+      { apiKey: 'ignition',           label: 'Ignición',                    source: 'ignition',                        required: false },
     ],
   },
   movup: {
