@@ -1129,15 +1129,20 @@ async function importExcel() {
 
   try {
     // ── PASO 1: Upsert masivo de unidades en una sola llamada ──
+    // Si falla (ej: CORS), continuar igual — las unidades pueden ya existir
     btn.textContent = `Enviando ${_importData.length} unidades…`;
-    await api.post('/units/batch', {
-      units: _importData.map(u => ({
-        imei:  u.imei,
-        plate: u.plate   || null,
-        name:  u.cliente || null,
-        rut:   u.rut     || null,
-      }))
-    });
+    try {
+      await api.post('/units/batch', {
+        units: _importData.map(u => ({
+          imei:  u.imei,
+          plate: u.plate   || null,
+          name:  u.cliente || null,
+          rut:   u.rut     || null,
+        }))
+      });
+    } catch (batchErr) {
+      console.warn('[import] /units/batch falló, continuando con destinos:', batchErr.message);
+    }
 
     // ── PASO 2: Mapear destinos reales de la BD por nombre ──
     const unitsWithDests = _importData.filter(u => u.destinos?.length);
