@@ -1046,6 +1046,10 @@
                   </svg>
                   Exportar JSON
                 </button>
+                <button class="val-tab" onclick="switchValTab('recibidos', this); loadValRecibidos()">
+                  Recibidos
+                    <span id="tab-count-recibidos" class="val-tab-count"></span>
+                </button>
                 <button class="btn sm" id="btn-certificado" onclick="openCertModal()" style="display:none" title="Emitir Certificado GPS">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <circle cx="12" cy="8" r="6"/><path d="M9 16l-3 6 6-2 6 2-3-6"/>
@@ -1135,6 +1139,38 @@
 
         </div><!-- /result-panel -->
       </div>
+      <div id="val-panel-recibidos" style="display:none">
+  <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap">
+    <select id="recibidos-dest-filter" class="input" style="max-width:220px;font-size:12px"
+      onchange="loadValRecibidos()">
+      <option value="">Todos los destinos</option>
+    </select>
+    <button class="btn sm" onclick="loadValRecibidos()">🔄 Actualizar</button>
+  </div>
+  <div id="res-recibidos-loading" style="color:var(--text3);font-size:13px;padding:16px 0">
+    Cargando...
+  </div>
+  <div id="res-recibidos-empty" style="display:none;color:var(--text3);font-size:13px;padding:16px 0">
+    Sin registros para esta patente
+  </div>
+  <div id="res-recibidos-table" style="display:none">
+    <div class="table-wrap" style="max-height:420px;overflow-y:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead>
+          <tr>
+            <th style="padding:8px 10px;text-align:left;color:var(--text3);font-weight:500;white-space:nowrap">Fecha</th>
+            <th style="padding:8px 10px;text-align:left;color:var(--text3);font-weight:500">Destino</th>
+            <th style="padding:8px 10px;text-align:left;color:var(--text3);font-weight:500">Estado</th>
+            <th style="padding:8px 10px;text-align:left;color:var(--text3);font-weight:500">Velocidad</th>
+            <th style="padding:8px 10px;text-align:left;color:var(--text3);font-weight:500">Ign</th>
+            <th style="padding:8px 10px;text-align:left;color:var(--text3);font-weight:500">Respuesta</th>
+          </tr>
+        </thead>
+        <tbody id="res-recibidos-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
 
       <!-- ──────────────────── ADMIN ──────────────────── -->
       <div class="view" id="view-admin">
