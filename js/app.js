@@ -426,6 +426,98 @@ function _renderValHistorial(results) {
   }).join('');
 }
 
+/* ── Historial de Recibidos desde la BD ──────────────────────── */
+async function loadValRecibidos() {
+  if (!_valUnit) return;
+  const plate = _valUnit.plate;
+
+  const panel   = document.getElementById('val-panel-recibidos');
+  const loading = document.getElementById('res-recibidos-loading');
+  const table   = document.getElementById('res-recibidos-table');
+  const empty   = document.getElementById('res-recibidos-empty');
+  const tbody   = document.getElementById('res-recibidos-tbody');
+  const count   = document.getElementById('tab-count-recibidos');
+  const filter  = document.getElementById('recibidos-dest-filter');
+
+  loading.style.display = '';
+  table.style.display   = 'none';
+  empty.style.display   = 'none';
+
+  try {
+    const destId = filter?.value || '';
+    const url    = `/admin/gps-events/${encodeURIComponent(plate)}?limit=100${destId ? '&dest_id=' + destId : ''}`;
+    const data   = await api.get(url);
+
+    loading.style.display = 'none';
+
+    if (!data.events?.length) {
+      empty.style.display = '';
+      count.textContent   = '';
+      return;
+    }
+
+    count.textContent   = data.total;
+    table.style.display = '';
+    empty.style.display = 'none';
+
+    tbody.innerHTML = data.events.map(e => {
+      const fecha = e.created_at
+        ? new Date(e.created_at).toLocaleString('es-CL', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit' })
+        : '–';
+      const dest    = e.dest_name || e.dest_id || '–';
+      const ok      = e.forward_ok;
+      const vel     = e.speed != null ? `${Math.round(e.speed)} km/h` : '–';
+      const ign     = e.ignition === true ? '🟢' : e.ignition === false ? '🔴' : '–';
+
+      // Parsear forward_resp para mostrarlo bonito
+      let respText = '–';
+      let respFull = e.forward_resp || '';
+      try {
+        const parsed = JSON.parse(e.forward_resp);
+        respText = parsed?.message || parsed?.error || parsed?.status || parsed?.code
+          || JSON.stringify(parsed).slice(0, 80);
+      } catch { respText = String(e.forward_resp || '–').slice(0, 80); }
+
+      const okBadge = ok === true
+        ? '<span class="badge green" style="font-size:10px">✓ OK</span>'
+        : ok === false
+        ? '<span class="badge red" style="font-size:10px">✗ Error</span>'
+        : '<span style="color:var(--text3);font-size:11px">—</span>';
+
+      return `<tr style="border-top:1px solid var(--border)"
+        onmouseenter="this.style.background='var(--bg2)'"
+        onmouseleave="this.style.background=''">
+        <td style="padding:6px 10px;white-space:nowrap;color:var(--text2);font-size:11px">${fecha}</td>
+        <td style="padding:6px 10px;font-size:12px">${dest}</td>
+        <td style="padding:6px 10px">${okBadge}</td>
+        <td style="padding:6px 10px;color:var(--text2);font-size:11px">${vel}</td>
+        <td style="padding:6px 10px;color:var(--text2);font-size:11px">${ign}</td>
+        <td style="padding:6px 10px;max-width:220px;overflow:hidden;text-overflow:ellipsis;
+          white-space:nowrap;font-family:monospace;font-size:10px;color:var(--text2);cursor:pointer"
+          title="${respFull.replace(/"/g,'&quot;')}"
+          onclick="alert(${JSON.stringify(respFull).replace(/</g,'&lt;')})">${respText}</td>
+      </tr>`;
+    }).join('');
+
+    // Cargar filtro de destinos si aún no tiene opciones
+    if (filter && filter.options.length <= 1) {
+      try {
+        const dests = await api.get(`/admin/gps-events/${encodeURIComponent(plate)}/destinations`);
+        dests.forEach(d => {
+          const opt = document.createElement('option');
+          opt.value = d.id; opt.textContent = d.name;
+          filter.appendChild(opt);
+        });
+      } catch (_) {}
+    }
+
+  } catch (err) {
+    loading.style.display = 'none';
+    empty.style.display   = '';
+    empty.textContent     = 'Error cargando historial: ' + err.message;
+  }
+}
+
 // points = array de tx objects ordenados del más reciente al más antiguo
 function _renderValMapa(points) {
   const noData = document.getElementById('res-mapa-nodata');
@@ -535,7 +627,7 @@ function switchValTab(name, clickedBtn) {
   if (clickedBtn) clickedBtn.classList.add('active');
 
   // Mostrar panel
-  ['destinos','historial','mapa'].forEach(n => {
+  ['destinos','historial','mapa','recibidos'].forEach(n => {
     document.getElementById(`val-panel-${n}`).style.display = n === name ? '' : 'none';
   });
 
