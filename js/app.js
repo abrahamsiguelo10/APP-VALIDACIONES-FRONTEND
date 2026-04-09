@@ -469,14 +469,30 @@ async function loadValRecibidos() {
       const vel     = e.speed != null ? `${Math.round(e.speed)} km/h` : '–';
       const ign     = e.ignition === true ? '🟢' : e.ignition === false ? '🔴' : '–';
 
-      // Parsear forward_resp para mostrarlo bonito
+      // Parsear forward_resp — formato: "200 | {json}" o "200 OK" o json directo
       let respText = '–';
       let respFull = e.forward_resp || '';
+      let respJson = '';
       try {
-        const parsed = JSON.parse(e.forward_resp);
-        respText = parsed?.message || parsed?.error || parsed?.status || parsed?.code
-          || JSON.stringify(parsed).slice(0, 80);
-      } catch { respText = String(e.forward_resp || '–').slice(0, 80); }
+        // Extraer la parte JSON después del separador " | "
+        const pipeIdx = respFull.indexOf(' | ');
+        const jsonPart = pipeIdx >= 0 ? respFull.slice(pipeIdx + 3) : respFull;
+        const statusPart = pipeIdx >= 0 ? respFull.slice(0, pipeIdx) : '';
+        if (jsonPart && jsonPart.trim().startsWith('{') || jsonPart.trim().startsWith('[')) {
+          const parsed = JSON.parse(jsonPart);
+          respJson = JSON.stringify(parsed, null, 2); // pretty print para el popup
+          respText = parsed?.message || parsed?.error || parsed?.status
+            || parsed?.code || parsed?.detail || parsed?.description
+            || parsed?.success !== undefined ? `success:${parsed.success}` : ''
+            || jsonPart.slice(0, 80);
+        } else {
+          respText = (statusPart || jsonPart || '–').slice(0, 80);
+          respJson = respFull;
+        }
+      } catch {
+        respText = respFull.slice(0, 80) || '–';
+        respJson = respFull;
+      }
 
       const okBadge = ok === true
         ? '<span class="badge green" style="font-size:10px">✓ OK</span>'
@@ -494,8 +510,10 @@ async function loadValRecibidos() {
         <td style="padding:6px 10px;color:var(--text2);font-size:11px">${ign}</td>
         <td style="padding:6px 10px;max-width:220px;overflow:hidden;text-overflow:ellipsis;
           white-space:nowrap;font-family:monospace;font-size:10px;color:var(--text2);cursor:pointer"
-          title="${respFull.replace(/"/g,'&quot;')}"
-          onclick="alert(${JSON.stringify(respFull).replace(/</g,'&lt;')})">${respText}</td>
+          title="Click para ver respuesta completa"
+          onclick="_showRespJson(this.dataset.resp)"
+          data-resp="${(respJson||respFull).replace(/"/g,'&quot;').replace(/'/g,'&#39;')}"
+          style="cursor:pointer;text-decoration:underline dotted">${respText || '–'}</td>
       </tr>`;
     }).join('');
 
@@ -516,6 +534,61 @@ async function loadValRecibidos() {
     empty.style.display   = '';
     empty.textContent     = 'Error cargando historial: ' + err.message;
   }
+}
+
+/* ── Modal para ver respuesta JSON completa ──────────────────── */
+function _showRespJson(raw) {
+  // Intentar pretty-print si es JSON
+  let display = raw || '(sin respuesta)';
+  try {
+    // Si viene con formato "200 | {...}", extraer solo el JSON
+    const pipeIdx = raw.indexOf(' | ');
+    const jsonPart = pipeIdx >= 0 ? raw.slice(pipeIdx + 3) : raw;
+    const status   = pipeIdx >= 0 ? raw.slice(0, pipeIdx) : '';
+    const parsed   = JSON.parse(jsonPart);
+    display = (status ? `HTTP ${status}\n\n` : '') + JSON.stringify(parsed, null, 2);
+  } catch { display = raw || '(sin respuesta)'; }
+
+  // Crear modal
+  const existing = document.getElementById('resp-json-modal');
+  if (existing) existing.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'resp-json-modal';
+  modal.style.cssText = `
+    position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;
+    display:flex;align-items:center;justify-content:center;padding:24px
+  `;
+  modal.innerHTML = `
+    <div style="background:var(--bg,#1e293b);border:1px solid var(--border,#334155);
+      border-radius:12px;max-width:600px;width:100%;max-height:80vh;
+      display:flex;flex-direction:column;overflow:hidden">
+      <div style="display:flex;align-items:center;justify-content:space-between;
+        padding:14px 18px;border-bottom:1px solid var(--border,#334155)">
+        <span style="font-weight:600;font-size:14px;color:var(--text,#e2e8f0)">
+          Respuesta de la integración
+        </span>
+        <button onclick="document.getElementById('resp-json-modal').remove()"
+          style="background:none;border:none;color:var(--text2,#94a3b8);
+          font-size:18px;cursor:pointer;padding:4px 8px">✕</button>
+      </div>
+      <div style="overflow-y:auto;padding:16px">
+        <pre style="margin:0;font-size:12px;font-family:monospace;
+          color:var(--text,#e2e8f0);white-space:pre-wrap;word-break:break-all;
+          line-height:1.6">${display.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</pre>
+      </div>
+      <div style="padding:12px 18px;border-top:1px solid var(--border,#334155);
+        display:flex;justify-content:flex-end;gap:8px">
+        <button onclick="navigator.clipboard.writeText(${JSON.stringify(display)
+          .replace(/</g,'&lt;')}).then(()=>showToast('Copiado','JSON copiado al portapapeles'))"
+          class="btn sm">📋 Copiar</button>
+        <button onclick="document.getElementById('resp-json-modal').remove()"
+          class="btn sm">Cerrar</button>
+      </div>
+    </div>
+  `;
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+  document.body.appendChild(modal);
 }
 
 // points = array de tx objects ordenados del más reciente al más antiguo
