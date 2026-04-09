@@ -1046,10 +1046,6 @@
                   </svg>
                   Exportar JSON
                 </button>
-                <button class="val-tab" onclick="switchValTab('recibidos', this); loadValRecibidos()">
-                  Recibidos
-                    <span id="tab-count-recibidos" class="val-tab-count"></span>
-                </button>
                 <button class="btn sm" id="btn-certificado" onclick="openCertModal()" style="display:none" title="Emitir Certificado GPS">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <circle cx="12" cy="8" r="6"/><path d="M9 16l-3 6 6-2 6 2-3-6"/>
@@ -1078,6 +1074,10 @@
               <span class="val-tab-count" id="tab-count-historial"></span>
             </button>
             <button class="val-tab" onclick="switchValTab('mapa', this)">Mapa</button>
+              <button class="val-tab" onclick="switchValTab('recibidos', this); loadValRecibidos()">
+                  Recibidos
+                    <span id="tab-count-recibidos" class="val-tab-count"></span>
+                </button>
           </div>
 
          <!-- Tab: Destinos -->
