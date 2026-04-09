@@ -1191,9 +1191,17 @@ async function importExcel() {
             const destId = orgByName[destNombre.toLowerCase().trim()];
             if (!destId) continue;
             try {
-              await api.post(`/units/${unit.imei}/destinations`, { destination_id: destId });
+              // fetch directo para no mostrar toast en 409 (ya asignado = ok)
+              const _r = await fetch(CONFIG.API_URL + `/units/${unit.imei}/destinations`, {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
+                body:    JSON.stringify({ destination_id: destId }),
+              });
+              if (!_r.ok && _r.status !== 409) {
+                console.warn(`[import] ${unit.imei} → ${destId}: http ${_r.status}`);
+              }
             } catch (e) {
-              if (!e.message?.includes('ya tiene ese destino')) console.warn(e);
+              console.warn('[import] error asignando destino:', e.message);
             }
           }
         }));
