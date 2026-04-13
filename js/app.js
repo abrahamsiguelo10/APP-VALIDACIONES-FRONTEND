@@ -26,7 +26,7 @@ async function openCreateModal() {
   document.getElementById('modal-patente').value       = '';
   document.getElementById('modal-imei').value          = '';
   document.getElementById('modal-imei').readOnly       = false;
-  document.getElementById('modal-imei').style.opacity  = '';
+  document.getElementById('modal-imei').style.opacity  = '1';
   if (document.getElementById('modal-cliente'))    document.getElementById('modal-cliente').value    = '';
   if (document.getElementById('modal-rut'))        document.getElementById('modal-rut').value        = '';
 
@@ -953,7 +953,7 @@ async function editAdminUnit(imei) {
   document.getElementById('modal-title').textContent      = `Editar — ${unit.plate || unit.imei}`;
   document.getElementById('modal-patente').value          = unit.plate || '';
   document.getElementById('modal-imei').value             = unit.imei;
-  document.getElementById('modal-imei').readOnly          = true;
+  document.getElementById('modal-imei').readOnly          = false;
   document.getElementById('modal-imei').style.opacity     = '0.6';
   if (document.getElementById('modal-cliente'))    document.getElementById('modal-cliente').value    = unit.name       || '';
   if (document.getElementById('modal-rut'))        document.getElementById('modal-rut').value        = unit.rut        || '';
@@ -1035,22 +1035,36 @@ async function editAdminUnit(imei) {
 }
 
 async function saveEditEntry() {
-  const imei    = _editingImei;
+  const oldImei = _editingImei;
+  const newImei = document.getElementById('modal-imei').value.trim();
   const plate   = document.getElementById('modal-patente').value.trim().toUpperCase();
-  const cliente    = document.getElementById('modal-cliente')?.value.trim()    || null;
-  const rut        = document.getElementById('modal-rut')?.value.trim()        || null;
-  const btn = document.getElementById('modal-save-btn');
-
+  const cliente = document.getElementById('modal-cliente')?.value.trim() || null;
+  const rut     = document.getElementById('modal-rut')?.value.trim()     || null;
+  const btn     = document.getElementById('modal-save-btn');
+ 
+  if (!newImei) {
+    showToast('Error', 'El IMEI es requerido.');
+    return;
+  }
+ 
   btn.disabled    = true;
   btn.textContent = 'Guardando…';
-
+ 
   try {
-    await api.patch(`/units/${imei}`, { plate: plate || null, name: cliente, rut });
-    showToast('Guardado', `Unidad ${imei} actualizada.`);
+    // Si el IMEI cambió, primero migrar el IMEI en todas las tablas
+    if (newImei !== oldImei) {
+      await api.patch(`/units/${oldImei}/change-imei`, { new_imei: newImei });
+    }
+ 
+    // Actualizar los demás campos con el IMEI actual (nuevo o viejo)
+    await api.patch(`/units/${newImei}`, { plate: plate || null, name: cliente, rut });
+ 
+    showToast('Guardado', `Unidad ${newImei} actualizada.`);
     closeModal();
     _adminUnits = await api.get('/units');
     _paintAdminTable(_adminUnits);
-  } catch (_) {
+  } catch (e) {
+    showToast('Error', e.message || 'No se pudo guardar.');
   } finally {
     btn.disabled    = false;
     btn.textContent = 'Guardar cambios';
