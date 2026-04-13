@@ -40,6 +40,7 @@ const GPS_SOURCES = [
   { value: 'wialon_ts_offset', label: 'Fecha/Hora Chile con offset (YYYY-MM-DDTHH:MM:SS-0400)', group: 'GPS' },
   { value: 'unix_timestamp',   label: 'Timestamp Unix en segundos (epoch)',                         group: 'GPS' },
   { value: 'moving',           label: 'En movimiento (true/false según velocidad > 0)',              group: 'GPS' },
+  { value: 'unix_timestamp_ms', label: 'Epoch milisegundos (UTC)' },
 
   // ── Datos de la unidad (de la DB de Síguelo) ──
   { value: 'unit_plate',       label: 'Patente de la unidad',                    group: 'Unidad' },
