@@ -92,6 +92,13 @@ function navigate(viewId) {
 
   state.currentView = viewId;
 
+  // Cerrar panel del validador y modales al cambiar de vista
+const resultPanel = document.getElementById('result-panel');
+if (resultPanel) resultPanel.classList.remove('show');
+if (typeof closeDestModal === 'function') closeDestModal();
+
+if (viewId === 'settings') {
+
   if (viewId === 'settings') {
     switchSettingsTab('general');
   }
