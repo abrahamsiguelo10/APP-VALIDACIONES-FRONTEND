@@ -400,7 +400,7 @@ function _renderValHistorial(results) {
 
   tbody.innerHTML = results.map(r => {
     const hora    = r.at ? new Date(r.at).toLocaleString('es-CL', { hour:'2-digit', minute:'2-digit', second:'2-digit', day:'2-digit', month:'2-digit' }) : '–';
-    const dest    = r.destination_id || '–';
+    const dest    = r.target || r.destination_id || '–';
     const ok      = r.ok;
     const vel     = r.tx?.speed != null ? `${r.tx.speed} km/h` : '–';
     const ign     = r.tx?.ignition ? '🟢' : (r.tx?.ignition === false ? '🔴' : '–');
