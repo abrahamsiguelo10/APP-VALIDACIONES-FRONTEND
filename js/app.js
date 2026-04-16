@@ -356,7 +356,8 @@ function _renderValGps({ status, responses }) {
 
   // — Último dato de posición — solo mostrar si hay transmisión activa —
   const results = responses?.results || [];
-  const lastWithTx = results.find(r => r.tx?.lat && r.tx?.lon);
+  const lastWithTx = results.find(r => r.tx?.lat && r.tx?.lon)
+                || results.find(r => r.tx);
 
   if (status?.isTransmitting && lastWithTx?.tx) {
     const tx = lastWithTx.tx;
