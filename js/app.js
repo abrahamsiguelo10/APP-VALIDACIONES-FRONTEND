@@ -462,9 +462,9 @@ async function loadValRecibidos() {
     empty.style.display = 'none';
 
     tbody.innerHTML = data.events.map(e => {
-      const fecha = e.created_at
-        ? new Date(e.created_at).toLocaleString('es-CL', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit' })
-        : '–';
+      const fecha = (e.wialon_ts || e.received_at)
+  ? new Date(e.wialon_ts || e.received_at).toLocaleString('es-CL', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit' })
+  : '–';
       const dest    = e.dest_name || e.dest_id || '–';
       const ok      = e.forward_ok;
       const vel     = e.speed != null ? `${Math.round(e.speed)} km/h` : '–';
