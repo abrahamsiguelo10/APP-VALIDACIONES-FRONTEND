@@ -98,8 +98,8 @@ const resultPanel = document.getElementById('result-panel');
   if (viewId === 'settings') {
     switchSettingsTab('general');
   }
-  if (viewId === 'admin') {
-    setTimeout(() => renderAdminTable(), 0);
+  if (viewId === 'admin' && !_adminUnits.length) {
+  setTimeout(() => renderAdminTable(), 0);
   }
   if (viewId === 'dashboard') {
     setTimeout(() => loadDashboard(), 0);
