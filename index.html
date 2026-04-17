@@ -1136,38 +1136,46 @@
               </div>
             </div>
           </div>
-            <div id="val-panel-recibidos" style="display:none">
-  <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap">
-    <select id="recibidos-dest-filter" class="input" style="max-width:220px;font-size:12px"
-      onchange="loadValRecibidos()">
-      <option value="">Todos los destinos</option>
-    </select>
-    <button class="btn sm" onclick="loadValRecibidos()">🔄 Actualizar</button>
-  </div>
-  <div id="res-recibidos-loading" style="color:var(--text3);font-size:13px;padding:16px 0">
-    Cargando...
-  </div>
-  <div id="res-recibidos-empty" style="display:none;color:var(--text3);font-size:13px;padding:16px 0">
-    Sin registros para esta patente
-  </div>
-  <div id="res-recibidos-table" style="display:none">
-    <div class="table-wrap" style="max-height:420px;overflow-y:auto">
-      <table style="width:100%;border-collapse:collapse;font-size:12px">
-        <thead>
-          <tr>
-            <th style="padding:8px 10px;text-align:left;color:var(--text3);font-weight:500;white-space:nowrap">Fecha</th>
-            <th style="padding:8px 10px;text-align:left;color:var(--text3);font-weight:500">Destino</th>
-            <th style="padding:8px 10px;text-align:left;color:var(--text3);font-weight:500">Estado</th>
-            <th style="padding:8px 10px;text-align:left;color:var(--text3);font-weight:500">Velocidad</th>
-            <th style="padding:8px 10px;text-align:left;color:var(--text3);font-weight:500">Ign</th>
-            <th style="padding:8px 10px;text-align:left;color:var(--text3);font-weight:500">Respuesta</th>
-          </tr>
-        </thead>
-        <tbody id="res-recibidos-tbody"></tbody>
-      </table>
-    </div>
-  </div>
-</div>
+          
+           <!-- Tab: Recibidos -->
+          <div class="val-tab-panel" id="val-panel-recibidos" style="display:none">
+            <div class="card">
+              <div class="card-header">
+                <h3>Eventos recibidos</h3>
+                <div style="display:flex;gap:8px;align-items:center">
+                  <select id="recibidos-dest-filter" class="input" style="max-width:220px;font-size:12px"
+                    onchange="loadValRecibidos()">
+                    <option value="">Todos los destinos</option>
+                  </select>
+                  <button class="btn sm" onclick="loadValRecibidos()">🔄</button>
+                </div>
+              </div>
+              <div class="card-body" style="padding:0;overflow-x:auto">
+                <div id="res-recibidos-loading" style="color:var(--text3);font-size:13px;padding:16px 20px">
+                  Cargando...
+                </div>
+                <div id="res-recibidos-empty" style="display:none;color:var(--text3);font-size:13px;padding:16px 20px">
+                  Sin registros para esta patente
+                </div>
+                <div id="res-recibidos-table" style="display:none">
+                  <table class="val-table">
+                    <thead>
+                      <tr>
+                        <th>Fecha</th>
+                        <th>Destino</th>
+                        <th>Estado</th>
+                        <th>Vel.</th>
+                        <th>Ign.</th>
+                        <th>Respuesta</th>
+                      </tr>
+                    </thead>
+                    <tbody id="res-recibidos-tbody"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+
         </div><!-- /result-panel -->
       </div>
     
