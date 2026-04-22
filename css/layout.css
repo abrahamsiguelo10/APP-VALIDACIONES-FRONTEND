@@ -246,3 +246,100 @@
       from { opacity: 0; transform: translateY(6px); }
       to   { opacity: 1; transform: translateY(0); }
     }
+
+ 
+/* ── Contenedor general ── */
+.gc-view-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+  max-width: 1400px;
+}
+ 
+/* ── Header (búsqueda + botón nuevo) ── */
+.gc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+ 
+/* ── Grid de charts ── */
+.gc-charts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+ 
+.gc-chart-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+}
+ 
+.gc-chart-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  color: var(--text3);
+  margin-bottom: 12px;
+}
+ 
+/* ── Card de stats (sin gráfico) ── */
+.gc-chart-stat {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+ 
+.gc-stat-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  font-size: 13px;
+  color: var(--text2);
+  border-bottom: 1px solid var(--border);
+}
+.gc-stat-row:last-child { border-bottom: none; }
+.gc-stat-row .badge { min-width: 32px; text-align: center; }
+ 
+/* ── Fila expandida ── */
+.gc-row-expanded > td:first-child .gc-expand-btn {
+  background: var(--primary-dim, rgba(56,189,248,.1));
+}
+ 
+.gc-detail-row > td {
+  padding: 0 !important;
+  border-top: none !important;
+}
+ 
+.gc-detail-wrap {
+  background: var(--bg3, rgba(0,0,0,.15));
+  border-top: 1px solid var(--border);
+  border-bottom: 2px solid var(--primary, #38bdf8);
+  animation: gc-slide-down .15s ease;
+}
+ 
+@keyframes gc-slide-down {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+ 
+/* ── Badge purple (integraciones) ── */
+.badge.purple {
+  background: rgba(168,85,247,.15);
+  color: #a855f7;
+  border: 1px solid rgba(168,85,247,.3);
+}
+ 
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .gc-view-container { padding: 12px; }
+  .gc-charts-grid { grid-template-columns: 1fr; }
+  .gc-header { flex-direction: column; align-items: stretch; }
+}
