@@ -1074,6 +1074,10 @@
               <span class="val-tab-count" id="tab-count-historial"></span>
             </button>
             <button class="val-tab" onclick="switchValTab('mapa', this)">Mapa</button>
+              <button class="val-tab" onclick="switchValTab('recibidos', this); loadValRecibidos()">
+                  Recibidos
+                    <span id="tab-count-recibidos" class="val-tab-count"></span>
+                </button>
           </div>
 
          <!-- Tab: Destinos -->
@@ -1132,9 +1136,49 @@
               </div>
             </div>
           </div>
+          
+           <!-- Tab: Recibidos -->
+          <div class="val-tab-panel" id="val-panel-recibidos" style="display:none">
+            <div class="card">
+              <div class="card-header">
+                <h3>Eventos recibidos</h3>
+                <div style="display:flex;gap:8px;align-items:center">
+                  <select id="recibidos-dest-filter" class="input" style="max-width:220px;font-size:12px"
+                    onchange="loadValRecibidos()">
+                    <option value="">Todos los destinos</option>
+                  </select>
+                  <button class="btn sm" onclick="loadValRecibidos()">🔄</button>
+                </div>
+              </div>
+              <div class="card-body" style="padding:0;overflow-x:auto">
+                <div id="res-recibidos-loading" style="color:var(--text3);font-size:13px;padding:16px 20px">
+                  Cargando...
+                </div>
+                <div id="res-recibidos-empty" style="display:none;color:var(--text3);font-size:13px;padding:16px 20px">
+                  Sin registros para esta patente
+                </div>
+                <div id="res-recibidos-table" style="display:none">
+                  <table class="val-table">
+                    <thead>
+                      <tr>
+                        <th>Fecha</th>
+                        <th>Destino</th>
+                        <th>Estado</th>
+                        <th>Vel.</th>
+                        <th>Ign.</th>
+                        <th>Respuesta</th>
+                      </tr>
+                    </thead>
+                    <tbody id="res-recibidos-tbody"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
 
         </div><!-- /result-panel -->
       </div>
+    
 
       <!-- ──────────────────── ADMIN ──────────────────── -->
       <div class="view" id="view-admin">
@@ -1204,6 +1248,12 @@
                   </select>
 
                   <div class="toolbar-right">
+                    <button class="btn sm amber" id="btn-toggle-selected" disabled onclick="toggleSelected()">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                      </svg>
+                      Activar / Desactivar
+                    </button>
                     <button class="btn sm danger" id="btn-delete-selected" disabled onclick="deleteSelected()">
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
                       Eliminar

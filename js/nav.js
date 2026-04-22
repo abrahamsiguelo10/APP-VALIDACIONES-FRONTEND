@@ -90,11 +90,15 @@ function navigate(viewId) {
   document.getElementById('breadcrumb-current').textContent = title;
   state.currentView = viewId;
 
+  // Cerrar panel del validador y modales al cambiar de vista
+const resultPanel = document.getElementById('result-panel');
+
   if (viewId === 'settings') {
     switchSettingsTab('general');
   }
   if (viewId === 'admin' && !_adminUnits.length) {
     setTimeout(() => renderAdminTable(), 0);
+  setTimeout(() => renderAdminTable(), 0);
   }
   if (viewId === 'dashboard') {
     setTimeout(() => loadDashboard(), 0);

@@ -26,7 +26,7 @@ async function openCreateModal() {
   document.getElementById('modal-patente').value       = '';
   document.getElementById('modal-imei').value          = '';
   document.getElementById('modal-imei').readOnly       = false;
-  document.getElementById('modal-imei').style.opacity  = '';
+  document.getElementById('modal-imei').style.opacity  = '1';
   if (document.getElementById('modal-cliente'))    document.getElementById('modal-cliente').value    = '';
   if (document.getElementById('modal-rut'))        document.getElementById('modal-rut').value        = '';
 
@@ -354,15 +354,17 @@ function _renderValGps({ status, responses }) {
   // — Destinos: siempre al final, independiente del estado GPS —
   _renderValDestinos(status, responses);
 
-  // — Último dato de posición —
+  // — Último dato de posición — solo mostrar si hay transmisión activa —
   const results = responses?.results || [];
-  const lastWithTx = results.find(r => r.tx?.lat && r.tx?.lon);
+  const lastWithTx = results.find(r => r.tx?.lat && r.tx?.lon)
+                || results.find(r => r.tx);
 
-  if (lastWithTx?.tx) {
+  if (status?.isTransmitting && lastWithTx?.tx) {
     const tx = lastWithTx.tx;
     document.getElementById('res-speed').textContent    = tx.speed != null ? `${tx.speed} km/h` : '–';
     document.getElementById('res-ignition').textContent = tx.ignition ? '🟢 Encendida' : '🔴 Apagada';
-  } else {
+  } else if (!status?.isTransmitting) {
+    // Sin transmisión — limpiar datos de velocidad e ignición
     document.getElementById('res-speed').textContent    = '–';
     document.getElementById('res-ignition').textContent = '–';
   }
@@ -399,7 +401,7 @@ function _renderValHistorial(results) {
 
   tbody.innerHTML = results.map(r => {
     const hora    = r.at ? new Date(r.at).toLocaleString('es-CL', { hour:'2-digit', minute:'2-digit', second:'2-digit', day:'2-digit', month:'2-digit' }) : '–';
-    const dest    = r.destination_id || '–';
+    const dest    = r.target || r.destination_id || '–';
     const ok      = r.ok;
     const vel     = r.tx?.speed != null ? `${r.tx.speed} km/h` : '–';
     const ign     = r.tx?.ignition ? '🟢' : (r.tx?.ignition === false ? '🔴' : '–');
@@ -423,6 +425,171 @@ function _renderValHistorial(results) {
       <td class="val-resp-text" title="${respText.replace(/"/g,'&quot;')}">${respText}</td>
     </tr>`;
   }).join('');
+}
+
+/* ── Historial de Recibidos desde la BD ──────────────────────── */
+async function loadValRecibidos() {
+  if (!_valUnit) return;
+  const plate = _valUnit.plate;
+
+  const panel   = document.getElementById('val-panel-recibidos');
+  const loading = document.getElementById('res-recibidos-loading');
+  const table   = document.getElementById('res-recibidos-table');
+  const empty   = document.getElementById('res-recibidos-empty');
+  const tbody   = document.getElementById('res-recibidos-tbody');
+  const count   = document.getElementById('tab-count-recibidos');
+  const filter  = document.getElementById('recibidos-dest-filter');
+
+  loading.style.display = '';
+  table.style.display   = 'none';
+  empty.style.display   = 'none';
+
+  try {
+    const destId = filter?.value || '';
+    const url    = `/admin/gps-events/${encodeURIComponent(plate)}?limit=100${destId ? '&dest_id=' + destId : ''}`;
+    const data   = await api.get(url);
+
+    loading.style.display = 'none';
+
+    if (!data.events?.length) {
+      empty.style.display = '';
+      count.textContent   = '';
+      return;
+    }
+
+    count.textContent   = data.total;
+    table.style.display = '';
+    empty.style.display = 'none';
+
+    tbody.innerHTML = data.events.map(e => {
+      const fecha = (e.wialon_ts || e.received_at)
+  ? new Date(e.wialon_ts || e.received_at).toLocaleString('es-CL', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit' })
+  : '–';
+      const dest    = e.dest_name || e.dest_id || '–';
+      const ok      = e.forward_ok;
+      const vel     = e.speed != null ? `${Math.round(e.speed)} km/h` : '–';
+      const ign     = e.ignition === true ? '🟢' : e.ignition === false ? '🔴' : '–';
+
+      // Parsear forward_resp — formato: "200 | {json}" o "200 OK" o json directo
+      let respText = '–';
+      let respFull = e.forward_resp || '';
+      let respJson = '';
+      try {
+        // Extraer la parte JSON después del separador " | "
+        const pipeIdx = respFull.indexOf(' | ');
+        const jsonPart = pipeIdx >= 0 ? respFull.slice(pipeIdx + 3) : respFull;
+        const statusPart = pipeIdx >= 0 ? respFull.slice(0, pipeIdx) : '';
+        if (jsonPart && jsonPart.trim().startsWith('{') || jsonPart.trim().startsWith('[')) {
+          const parsed = JSON.parse(jsonPart);
+          respJson = JSON.stringify(parsed, null, 2); // pretty print para el popup
+          respText = parsed?.message || parsed?.error || parsed?.status
+            || parsed?.code || parsed?.detail || parsed?.description
+            || parsed?.success !== undefined ? `success:${parsed.success}` : ''
+            || jsonPart.slice(0, 80);
+        } else {
+          respText = (statusPart || jsonPart || '–').slice(0, 80);
+          respJson = respFull;
+        }
+      } catch {
+        respText = respFull.slice(0, 80) || '–';
+        respJson = respFull;
+      }
+
+      const okBadge = ok === true
+        ? '<span class="badge green" style="font-size:10px">✓ OK</span>'
+        : ok === false
+        ? '<span class="badge red" style="font-size:10px">✗ Error</span>'
+        : '<span style="color:var(--text3);font-size:11px">—</span>';
+
+      return `<tr style="border-top:1px solid var(--border)"
+        onmouseenter="this.style.background='var(--bg2)'"
+        onmouseleave="this.style.background=''">
+        <td style="padding:6px 10px;white-space:nowrap;color:var(--text2);font-size:11px">${fecha}</td>
+        <td style="padding:6px 10px;font-size:12px">${dest}</td>
+        <td style="padding:6px 10px">${okBadge}</td>
+        <td style="padding:6px 10px;color:var(--text2);font-size:11px">${vel}</td>
+        <td style="padding:6px 10px;color:var(--text2);font-size:11px">${ign}</td>
+        <td style="padding:6px 10px;max-width:220px;overflow:hidden;text-overflow:ellipsis;
+          white-space:nowrap;font-family:monospace;font-size:10px;color:var(--text2);cursor:pointer"
+          title="Click para ver respuesta completa"
+          onclick="_showRespJson(this.dataset.resp)"
+          data-resp="${(respJson||respFull).replace(/"/g,'&quot;').replace(/'/g,'&#39;')}"
+          style="cursor:pointer;text-decoration:underline dotted">${respText || '–'}</td>
+      </tr>`;
+    }).join('');
+
+    // Cargar filtro de destinos si aún no tiene opciones
+    if (filter && filter.options.length <= 1) {
+      try {
+        const dests = await api.get(`/admin/gps-events/${encodeURIComponent(plate)}/destinations`);
+        dests.forEach(d => {
+          const opt = document.createElement('option');
+          opt.value = d.id; opt.textContent = d.name;
+          filter.appendChild(opt);
+        });
+      } catch (_) {}
+    }
+
+  } catch (err) {
+    loading.style.display = 'none';
+    empty.style.display   = '';
+    empty.textContent     = 'Error cargando historial: ' + err.message;
+  }
+}
+
+/* ── Modal para ver respuesta JSON completa ──────────────────── */
+function _showRespJson(raw) {
+  // Intentar pretty-print si es JSON
+  let display = raw || '(sin respuesta)';
+  try {
+    // Si viene con formato "200 | {...}", extraer solo el JSON
+    const pipeIdx = raw.indexOf(' | ');
+    const jsonPart = pipeIdx >= 0 ? raw.slice(pipeIdx + 3) : raw;
+    const status   = pipeIdx >= 0 ? raw.slice(0, pipeIdx) : '';
+    const parsed   = JSON.parse(jsonPart);
+    display = (status ? `HTTP ${status}\n\n` : '') + JSON.stringify(parsed, null, 2);
+  } catch { display = raw || '(sin respuesta)'; }
+
+  // Crear modal
+  const existing = document.getElementById('resp-json-modal');
+  if (existing) existing.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'resp-json-modal';
+  modal.style.cssText = `
+    position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;
+    display:flex;align-items:center;justify-content:center;padding:24px
+  `;
+  modal.innerHTML = `
+    <div style="background:var(--bg,#1e293b);border:1px solid var(--border,#334155);
+      border-radius:12px;max-width:600px;width:100%;max-height:80vh;
+      display:flex;flex-direction:column;overflow:hidden">
+      <div style="display:flex;align-items:center;justify-content:space-between;
+        padding:14px 18px;border-bottom:1px solid var(--border,#334155)">
+        <span style="font-weight:600;font-size:14px;color:var(--text,#e2e8f0)">
+          Respuesta de la integración
+        </span>
+        <button onclick="document.getElementById('resp-json-modal').remove()"
+          style="background:none;border:none;color:var(--text2,#94a3b8);
+          font-size:18px;cursor:pointer;padding:4px 8px">✕</button>
+      </div>
+      <div style="overflow-y:auto;padding:16px">
+        <pre style="margin:0;font-size:12px;font-family:monospace;
+          color:var(--text,#e2e8f0);white-space:pre-wrap;word-break:break-all;
+          line-height:1.6">${display.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</pre>
+      </div>
+      <div style="padding:12px 18px;border-top:1px solid var(--border,#334155);
+        display:flex;justify-content:flex-end;gap:8px">
+        <button onclick="navigator.clipboard.writeText(${JSON.stringify(display)
+          .replace(/</g,'&lt;')}).then(()=>showToast('Copiado','JSON copiado al portapapeles'))"
+          class="btn sm">📋 Copiar</button>
+        <button onclick="document.getElementById('resp-json-modal').remove()"
+          class="btn sm">Cerrar</button>
+      </div>
+    </div>
+  `;
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+  document.body.appendChild(modal);
 }
 
 // points = array de tx objects ordenados del más reciente al más antiguo
@@ -534,7 +701,7 @@ function switchValTab(name, clickedBtn) {
   if (clickedBtn) clickedBtn.classList.add('active');
 
   // Mostrar panel
-  ['destinos','historial','mapa'].forEach(n => {
+  ['destinos','historial','mapa','recibidos'].forEach(n => {
     document.getElementById(`val-panel-${n}`).style.display = n === name ? '' : 'none';
   });
 
@@ -760,6 +927,8 @@ function updateDeleteBtn() {
   const anyChecked = !!document.querySelector('.row-chk:checked');
   const btn = document.getElementById('btn-delete-selected');
   if (btn) btn.disabled = !anyChecked;
+  const toggleBtn = document.getElementById('btn-toggle-selected');
+  if (toggleBtn) toggleBtn.disabled = !anyChecked;
   const all  = document.querySelectorAll('.row-chk');
   const chkd = document.querySelectorAll('.row-chk:checked');
   const hdr  = document.getElementById('chk-all');
@@ -785,7 +954,7 @@ async function editAdminUnit(imei) {
   document.getElementById('modal-title').textContent      = `Editar — ${unit.plate || unit.imei}`;
   document.getElementById('modal-patente').value          = unit.plate || '';
   document.getElementById('modal-imei').value             = unit.imei;
-  document.getElementById('modal-imei').readOnly          = true;
+  document.getElementById('modal-imei').readOnly          = false;
   document.getElementById('modal-imei').style.opacity     = '0.6';
   if (document.getElementById('modal-cliente'))    document.getElementById('modal-cliente').value    = unit.name       || '';
   if (document.getElementById('modal-rut'))        document.getElementById('modal-rut').value        = unit.rut        || '';
@@ -867,22 +1036,36 @@ async function editAdminUnit(imei) {
 }
 
 async function saveEditEntry() {
-  const imei    = _editingImei;
+  const oldImei = _editingImei;
+  const newImei = document.getElementById('modal-imei').value.trim();
   const plate   = document.getElementById('modal-patente').value.trim().toUpperCase();
-  const cliente    = document.getElementById('modal-cliente')?.value.trim()    || null;
-  const rut        = document.getElementById('modal-rut')?.value.trim()        || null;
-  const btn = document.getElementById('modal-save-btn');
-
+  const cliente = document.getElementById('modal-cliente')?.value.trim() || null;
+  const rut     = document.getElementById('modal-rut')?.value.trim()     || null;
+  const btn     = document.getElementById('modal-save-btn');
+ 
+  if (!newImei) {
+    showToast('Error', 'El IMEI es requerido.');
+    return;
+  }
+ 
   btn.disabled    = true;
   btn.textContent = 'Guardando…';
-
+ 
   try {
-    await api.patch(`/units/${imei}`, { plate: plate || null, name: cliente, rut });
-    showToast('Guardado', `Unidad ${imei} actualizada.`);
+    // Si el IMEI cambió, primero migrar el IMEI en todas las tablas
+    if (newImei !== oldImei) {
+      await api.patch(`/units/${oldImei}/change-imei`, { new_imei: newImei });
+    }
+ 
+    // Actualizar los demás campos con el IMEI actual (nuevo o viejo)
+    await api.patch(`/units/${newImei}`, { plate: plate || null, name: cliente, rut });
+ 
+    showToast('Guardado', `Unidad ${newImei} actualizada.`);
     closeModal();
     _adminUnits = await api.get('/units');
     _paintAdminTable(_adminUnits);
-  } catch (_) {
+  } catch (e) {
+    showToast('Error', e.message || 'No se pudo guardar.');
   } finally {
     btn.disabled    = false;
     btn.textContent = 'Guardar cambios';
@@ -1028,11 +1211,21 @@ async function _parseImportFile() {
           : XLSX.read(e.target.result, { type: 'binary' });
 
         const ws   = wb.Sheets[wb.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+        // Leer con raw:false para que SheetJS formatee los números como texto
+        // Esto evita que IMEIs de 15 dígitos se conviertan a notación científica
+        const rows = XLSX.utils.sheet_to_json(ws, { defval: '', raw: false });
 
         const normalized = rows.map(row => {
           const r = {};
-          Object.keys(row).forEach(k => { r[k.toLowerCase().trim()] = String(row[k]).trim(); });
+          Object.keys(row).forEach(k => {
+            let v = row[k];
+            // Si el valor parece notación científica (ej: 3.59E+16 o 3,59E+14), convertir a entero exacto
+            // Excel español usa coma decimal → normalizar a punto antes de parsear
+            if (typeof v === 'string' && /^[\d]+[,.]?\d*[eE][+\-]?\d+$/.test(v.trim())) {
+              try { v = BigInt(Math.round(parseFloat(v.replace(',', '.')))).toString(); } catch (_) {}
+            }
+            r[k.toLowerCase().trim()] = String(v ?? '').trim();
+          });
           // Leer todas las columnas "Integración N" como array de destinos
           const destinos = [];
           if (r['destino'])      destinos.push(r['destino']);
@@ -1117,26 +1310,32 @@ async function importExcel() {
 
   try {
     // ── PASO 1: Upsert masivo de unidades en una sola llamada ──
+    // Si falla (ej: CORS), continuar igual — las unidades pueden ya existir
     btn.textContent = `Enviando ${_importData.length} unidades…`;
-    await api.post('/units/batch', {
-      units: _importData.map(u => ({
-        imei:  u.imei,
-        plate: u.plate   || null,
-        name:  u.cliente || null,
-        rut:   u.rut     || null,
-      }))
-    });
+    try {
+      await api.post('/units/batch', {
+        units: _importData.map(u => ({
+          imei:  u.imei,
+          plate: u.plate   || null,
+          name:  u.cliente || null,
+          rut:   u.rut     || null,
+        }))
+      });
+    } catch (batchErr) {
+      console.warn('[import] /units/batch falló, continuando con destinos:', batchErr.message);
+    }
 
-    // ── PASO 2: Pre-crear todas las orgs necesarias (secuencial para evitar duplicados) ──
+    // ── PASO 2: Mapear destinos reales de la BD por nombre ──
     const unitsWithDests = _importData.filter(u => u.destinos?.length);
 
     if (unitsWithDests.length) {
       btn.textContent = 'Preparando organizaciones…';
 
-      // Mapa nombre → id con las orgs existentes
+      // Cargar destinos reales desde la API (no usar ORGS que son plantillas)
+      const destListReal = await api.get('/destinations').catch(() => []);
       const orgByName = {};
-      Object.entries(ORGS).forEach(([id, org]) => {
-        orgByName[org.name.toLowerCase().trim()] = id;
+      (destListReal || []).forEach(d => {
+        orgByName[d.name.toLowerCase().trim()] = String(d.id);
       });
 
       // Recolectar todos los nombres de destinos únicos del archivo
@@ -1144,10 +1343,10 @@ async function importExcel() {
         unitsWithDests.flatMap(u => u.destinos).map(d => d.trim()).filter(Boolean)
       )];
 
-      // Crear secuencialmente las que no existen (evita duplicados por paralelismo)
+      // Crear secuencialmente los que no existen en la BD (evita duplicados por paralelismo)
       for (const destNombre of allDestNames) {
         const key = destNombre.toLowerCase().trim();
-        if (orgByName[key]) continue; // ya existe, saltar
+        if (orgByName[key]) continue; // ya existe en la BD, saltar
 
         try {
           const newId   = 'org-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
@@ -1158,8 +1357,7 @@ async function importExcel() {
             color:        '#38bdf8',
             field_schema: [],
           });
-          ORGS[newId] = destToOrg(newDest);
-          orgByName[key] = newId;
+          orgByName[key] = String(newDest.id || newId);
         } catch (_) {}
       }
 
@@ -1173,9 +1371,17 @@ async function importExcel() {
             const destId = orgByName[destNombre.toLowerCase().trim()];
             if (!destId) continue;
             try {
-              await api.post(`/units/${unit.imei}/destinations`, { destination_id: destId });
+              // fetch directo para no mostrar toast en 409 (ya asignado = ok)
+              const _r = await fetch(CONFIG.API_URL + `/units/${unit.imei}/destinations`, {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
+                body:    JSON.stringify({ destination_id: destId }),
+              });
+              if (!_r.ok && _r.status !== 409) {
+                console.warn(`[import] ${unit.imei} → ${destId}: http ${_r.status}`);
+              }
             } catch (e) {
-              if (!e.message?.includes('ya tiene ese destino')) console.warn(e);
+              console.warn('[import] error asignando destino:', e.message);
             }
           }
         }));
@@ -1251,7 +1457,12 @@ async function exportExcel() {
     ]);
 
     const csv = BOM + [headers, ...rows]
-      .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(';'))
+      .map((row, ri) => row.map((cell, ci) => {
+        const val = String(cell).replace(/"/g, '""');
+        // IMEI (col 0) y RUT (col 3): prefijo \t fuerza texto en Excel
+        if (ri > 0 && (ci === 0 || ci === 3) && val) return '"\t' + val + '"';
+        return '"' + val + '"';
+      }).join(';'))
       .join('\n');
 
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -1291,6 +1502,48 @@ async function toggleUnit(imei, btn) {
     btn.disabled = false;
   }
 }
+
+async function toggleSelected() {
+  const checked = [...document.querySelectorAll('.row-chk:checked')];
+  if (!checked.length) return;
+
+  const imeis = checked.map(el => el.dataset.imei);
+
+  // Si la mayoría están activas → desactivar todo, si no → activar todo
+  const activeCount = imeis.filter(imei => _adminUnits.find(u => u.imei === imei)?.enabled).length;
+  const activate    = activeCount <= imeis.length / 2;
+  const action      = activate ? 'Activar' : 'Desactivar';
+
+  if (!confirm(`¿${action} ${imeis.length} unidad${imeis.length > 1 ? 'es' : ''}?`)) return;
+
+  const btn = document.getElementById('btn-toggle-selected');
+  btn.disabled    = true;
+  btn.textContent = activate ? 'Activando…' : 'Desactivando…';
+
+  let ok = 0, fail = 0;
+  await Promise.allSettled(imeis.map(async imei => {
+    try {
+      const unit = _adminUnits.find(u => u.imei === imei);
+      // Solo llamar toggle si el estado actual es diferente al deseado
+      if (!unit || unit.enabled === activate) {
+        ok++; return; // ya tiene el estado correcto
+      }
+      const updated = await api.patch('/units/' + imei + '/toggle', {});
+      if (unit) unit.enabled = updated.enabled;
+      ok++;
+    } catch (_) { fail++; }
+  }));
+
+  const verb = activate ? 'activada' : 'desactivada';
+  const msg  = fail
+    ? `${ok} ${verb}${ok !== 1 ? 's' : ''}, ${fail} fallaron`
+    : `${ok} unidad${ok !== 1 ? 'es' : ''} ${verb}${ok !== 1 ? 's' : ''}`;
+  showToast(activate ? '✅ Activadas' : '🚫 Desactivadas', msg);
+
+  _paintAdminTable(_adminUnits);
+  filterAdminTable();
+}
+
 async function deleteSelected() {
   const checked = [...document.querySelectorAll('.row-chk:checked')];
   if (!checked.length) return;
@@ -1638,12 +1891,20 @@ function _abrirModalSinDestino(units) {
 }
 
 function _irAPatenteBuscar(plate) {
-  document.getElementById('modal-sin-destino').style.display = 'none';
+  // Cerrar el modal si existe (puede no estar en el DOM si ya se cerró)
+  const modal = document.getElementById('modal-sin-destino');
+  if (modal) modal.style.display = 'none';
+  // Cerrar también cualquier overlay genérico
+  document.querySelectorAll('.modal-overlay').forEach(m => m.style.display = 'none');
   navigate('patentes');
   setTimeout(() => {
     const inp = document.getElementById('admin-search');
-    if (inp) { inp.value = plate; filterAdminTable(); }
-  }, 600);
+    if (inp) {
+      inp.value = plate;
+      inp.dispatchEvent(new Event('input'));  // disparar filtro
+      filterAdminTable();
+    }
+  }, 400);
 }
 
 let _pendingDestFilter = null;
@@ -2290,6 +2551,12 @@ async function saveUser() {
     return;
   }
 
+  // Verificar duplicado localmente antes de ir al servidor (más rápido)
+  if (!editingId) {
+    const alreadyExists = USERS.some(u => u.username.toLowerCase() === username.toLowerCase());
+    if (alreadyExists) return showUfError(`El usuario "${username}" ya existe. Elige otro nombre.`);
+  }
+
   btn.disabled    = true;
   btn.textContent = 'Guardando…';
 
@@ -2537,7 +2804,7 @@ async function generarCertificadoPDF() {
   let y = 0;
 
   /* ── HEADER con fondo verde ── */
-  doc.setFillColor(...VERDE);
+  doc.setFillColor(...NEGRO);
   doc.rect(0, 0, W, 38, 'F');
 
   /* Logo texto "Síguelo | gps" */
@@ -2551,7 +2818,7 @@ async function generarCertificadoPDF() {
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
-  doc.setTextColor(255, 255, 255, 0.8);
+  doc.setTextColor(255, 255, 255);
   doc.text('Tecnologías de rastreo y seguridad limitada', ml, 28);
   doc.text('RUT: 76.420.512-K', ml, 33.5);
 
@@ -3362,6 +3629,20 @@ function _renderValDestinos(status, responses) {
   window._valDestinosData = grouped;
   window._valDestinosTargets = targets;
 
+  window._valDestinosData    = grouped;
+  window._valDestinosTargets = targets;
+
+  // Detectar destinos con campos faltantes
+  const missingByDest = {};
+  results.forEach(r => {
+    const key = r.target || r.destination_id || '—';
+    if (r.forward_resp?.startsWith('CAMPOS_FALTANTES:')) {
+      if (!missingByDest[key]) missingByDest[key] = new Set();
+      r.forward_resp.replace('CAMPOS_FALTANTES:', '').trim()
+        .split(', ').forEach(c => missingByDest[key].add(c));
+    }
+  });
+
   function _timeAgo(ts) {
     if (!ts) return '—';
     const mins = Math.round((Date.now() - new Date(ts).getTime()) / 60000);
@@ -3391,8 +3672,43 @@ function _renderValDestinos(status, responses) {
         <span style="font-size:11px;color:var(--text3)">${lastTime}</span>
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3);flex-shrink:0">
           <polyline points="9 18 15 12 9 6"/>
+    const lastTime   = _timeAgo(last?.at);
+    const hasMissing = missingByDest[tName]?.size > 0;
+    const btnColor   = hasMissing ? 'rgba(251,191,36,.3)' : 'var(--border)';
+    const btnBg      = hasMissing ? 'rgba(251,191,36,.04)' : 'var(--bg2)';
+    const dotFinal   = hasMissing ? 'var(--amber)' : dotColor;
+
+    const missingAlert = hasMissing ? `
+      <div style="font-size:11px;color:var(--amber);background:var(--amber-dim);
+        border:1px solid rgba(251,191,36,.2);border-radius:var(--radius-sm);
+        padding:6px 10px;margin-top:6px;display:flex;align-items:flex-start;gap:6px">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          style="flex-shrink:0;margin-top:1px">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+          <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
         </svg>
-      </button>`;
+        <span>Campos requeridos sin datos: <strong>${[...missingByDest[tName]].join(', ')}</strong>
+          <br><span style="color:var(--text3)">Completa los datos en Patentes / IMEI</span></span>
+      </div>` : '';
+
+    return `
+      <div>
+        <button onclick="openDestModal('${tName.replace(/'/g,"\'")}', '${dotFinal}')"
+          style="display:flex;align-items:center;gap:10px;padding:10px 14px;
+            border-radius:var(--radius-sm);border:1px solid ${btnColor};background:${btnBg};
+            cursor:pointer;text-align:left;transition:border-color .15s;width:100%"
+          onmouseover="this.style.borderColor='var(--sky)'"
+          onmouseout="this.style.borderColor='${btnColor}'">
+          <span style="width:9px;height:9px;border-radius:99px;background:${dotFinal};flex-shrink:0;display:inline-block"></span>
+          <span style="flex:1;font-size:13px;font-weight:500;color:var(--text)">${tName}</span>
+          ${hasMissing ? '<span class="badge amber" style="font-size:10px">Datos incompletos</span>' : ''}
+          <span style="font-size:11px;color:var(--text3)">${lastTime}</span>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3);flex-shrink:0">
+            <polyline points="9 18 15 12 9 6"/>
+          </svg>
+        </button>
+        ${missingAlert}
+      </div>`;
   }).join('');
 
   container.innerHTML = `
@@ -3469,6 +3785,29 @@ function _openDestModalBase() {
             <div style="text-align:center;padding:40px;color:var(--text3)">
               Selecciona un destino del panel izquierdo
             </div>
+    overlay.style.cssText = '';
+    overlay.className = 'modal-overlay';
+    overlay.onclick = e => { if (e.target === overlay) closeDestModal(); };
+    overlay.innerHTML = `
+      <div class="dest-modal-shell">
+        <div class="dest-modal-header">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="width:28px;height:28px;border-radius:8px;background:var(--sky-dim);
+              display:flex;align-items:center;justify-content:center;flex-shrink:0">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--sky)" stroke-width="2">
+                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.99 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.9 1.27h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 8.91a16 16 0 0 0 5.61 5.61l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+              </svg>
+            </div>
+            <h3 style="font-size:14px;font-weight:600">Integraciones / Destinos</h3>
+            <span id="dest-modal-badge" class="badge sky"></span>
+          </div>
+          <button class="btn sm" onclick="closeDestModal()"
+            style="width:28px;height:28px;padding:0;justify-content:center;flex-shrink:0">✕</button>
+        </div>
+        <div class="dest-modal-content">
+          <div id="dest-modal-sidebar" class="dest-modal-sidebar"></div>
+          <div id="dest-modal-body" class="dest-modal-body">
+            <div class="empty-state" style="padding:48px 20px"><p>Selecciona un destino</p></div>
           </div>
         </div>
       </div>`;
@@ -3525,6 +3864,18 @@ function _destModalSelectTab(tName, btnEl) {
     activeBtn.style.background    = 'var(--bg2)';
     activeBtn.style.borderColor   = 'var(--border)';
   }
+function closeDestModal() {
+  const ov = document.getElementById('dest-modal-overlay');
+  if (!ov) return;
+  ov.classList.remove('show');
+  ov.style.display = 'none';
+}
+
+function _destModalSelectTab(tName, btnEl) {
+  // Highlight tab activo
+  document.querySelectorAll('#dest-modal-sidebar .dest-sidebar-btn').forEach(b => b.classList.remove('active'));
+  const activeBtn = btnEl || document.querySelector('#dest-modal-sidebar .dest-sidebar-btn');
+  if (activeBtn) activeBtn.classList.add('active');
 
   const body    = document.getElementById('dest-modal-body');
   const grouped = window._valDestinosData || {};
@@ -3547,6 +3898,13 @@ function _destModalSelectTab(tName, btnEl) {
           a esta unidad pero aún no ha recibido datos GPS.<br>
           Los envíos aparecerán aquí en cuanto la unidad transmita.
         </div>
+      <div class="empty-state" style="padding:40px 20px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+          style="width:32px;height:32px;margin-bottom:10px;opacity:.3">
+          <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.99 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.9 1.27h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 8.91a16 16 0 0 0 5.61 5.61l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+        </svg>
+        <p>Sin envíos para <strong>${tName}</strong></p>
+        <small>Los envíos aparecerán aquí en cuanto la unidad transmita</small>
       </div>`;
     return;
   }
@@ -3570,6 +3928,21 @@ function _destModalSelectTab(tName, btnEl) {
       </div>
       <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px">
         <div class="label" style="margin-bottom:4px">Último resultado</div>
+    <div class="dest-detail-stats">
+      <div class="dest-stat-card">
+        <div class="dest-stat-label">Destino</div>
+        <div class="dest-stat-value">${tName}</div>
+      </div>
+      <div class="dest-stat-card">
+        <div class="dest-stat-label">Total envíos</div>
+        <div class="dest-stat-value">${evs.length}</div>
+      </div>
+      <div class="dest-stat-card">
+        <div class="dest-stat-label">Último envío</div>
+        <div class="dest-stat-value" style="font-size:13px">${_fmt(last.at)}</div>
+      </div>
+      <div class="dest-stat-card">
+        <div class="dest-stat-label">Último resultado</div>
         <div>${last.ok === null || last.ok === undefined
           ? `<span style="color:var(--text3);font-size:12px">Sin datos</span>`
           : last.ok
@@ -3622,6 +3995,14 @@ function _destModalSelectTab(tName, btnEl) {
               <th style="padding:8px 12px;text-align:left;font-weight:600">Resultado</th>
               <th style="padding:8px 12px;text-align:left;font-weight:600">Respuesta</th>
               <th style="padding:8px 12px;text-align:left;font-weight:600">Velocidad</th>
+      <div class="table-wrap" style="max-height:300px">
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Resultado</th>
+              <th>Respuesta</th>
+              <th>Velocidad</th>
             </tr>
           </thead>
           <tbody>
