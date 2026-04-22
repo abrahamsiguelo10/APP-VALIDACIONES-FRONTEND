@@ -2804,7 +2804,7 @@ async function generarCertificadoPDF() {
   let y = 0;
 
   /* ── HEADER con fondo verde ── */
-  doc.setFillColor(...VERDE);
+  doc.setFillColor(...NEGRO);
   doc.rect(0, 0, W, 38, 'F');
 
   /* Logo texto "Síguelo | gps" */
