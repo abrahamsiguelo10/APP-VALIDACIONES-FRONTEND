@@ -2818,7 +2818,7 @@ async function generarCertificadoPDF() {
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
-  doc.setTextColor(255, 255, 255, 0.8);
+  doc.setTextColor(255, 255, 255);
   doc.text('Tecnologías de rastreo y seguridad limitada', ml, 28);
   doc.text('RUT: 76.420.512-K', ml, 33.5);
 
