@@ -3626,6 +3626,9 @@ function _renderValDestinos(status, responses) {
     if (!grouped[key]) grouped[key] = [];
     grouped[key].push(r);
   });
+  window._valDestinosData = grouped;
+  window._valDestinosTargets = targets;
+
   window._valDestinosData    = grouped;
   window._valDestinosTargets = targets;
 
@@ -3656,6 +3659,19 @@ function _renderValDestinos(status, responses) {
     let dotColor = 'var(--text3)';
     if (ok === true)  dotColor = 'var(--green)';
     if (ok === false) dotColor = 'var(--red)';
+    const lastTime = _timeAgo(last?.at);
+    return `
+      <button onclick="openDestModal('${tName.replace(/'/g,"\'")}', '${dotColor}')"
+        style="display:flex;align-items:center;gap:10px;padding:10px 14px;
+          border-radius:8px;border:1px solid var(--border);background:var(--bg2);
+          cursor:pointer;text-align:left;transition:border-color .15s;width:100%"
+        onmouseover="this.style.borderColor='var(--sky)'"
+        onmouseout="this.style.borderColor='var(--border)'">
+        <span style="width:9px;height:9px;border-radius:99px;background:${dotColor};flex-shrink:0;display:inline-block"></span>
+        <span style="flex:1;font-size:13px;font-weight:500;color:var(--text)">${tName}</span>
+        <span style="font-size:11px;color:var(--text3)">${lastTime}</span>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3);flex-shrink:0">
+          <polyline points="9 18 15 12 9 6"/>
     const lastTime   = _timeAgo(last?.at);
     const hasMissing = missingByDest[tName]?.size > 0;
     const btnColor   = hasMissing ? 'rgba(251,191,36,.3)' : 'var(--border)';
@@ -3719,12 +3735,14 @@ function openDestModalAll() {
   _openDestModalBase();
   const targets = window._valDestinosTargets || [];
   const grouped = window._valDestinosData   || {};
+  // Preferir el primero que tenga datos; si no, el primero disponible
   const first = targets.find(t => (grouped[t]||[]).length > 0) || targets[0];
   if (first) setTimeout(() => _destModalSelectTab(first), 50);
 }
 
 function openDestModal(tName, dotColor) {
   _openDestModalBase();
+  // Pequeño delay para que el DOM esté listo antes de seleccionar
   setTimeout(() => _destModalSelectTab(tName), 50);
 }
 
@@ -3737,6 +3755,36 @@ function _openDestModalBase() {
 
   // ── Si el nuevo layout no existe en el HTML, inyectarlo ──────
   if (!document.getElementById('dest-modal-sidebar')) {
+    overlay.style.cssText = `position:fixed;inset:0;z-index:9999;display:flex;
+      align-items:center;justify-content:center;
+      background:rgba(0,0,0,.65);backdrop-filter:blur(4px);padding:16px;`;
+    overlay.onclick = e => { if (e.target === overlay) overlay.style.display = 'none'; };
+    overlay.innerHTML = `
+      <div style="background:var(--bg1,#0f1929);border:1px solid var(--border);border-radius:16px;
+        width:min(900px,96vw);max-height:88vh;display:flex;flex-direction:column;
+        box-shadow:0 20px 60px rgba(0,0,0,.5);overflow:hidden">
+        <div style="padding:14px 18px;border-bottom:1px solid var(--border);
+          display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+          <div style="display:flex;align-items:center;gap:10px">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.99 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.9 1.27h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 8.91a16 16 0 0 0 5.61 5.61l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+            </svg>
+            <h3 style="font-size:14px;font-weight:600">Integraciones / Destinos</h3>
+            <span id="dest-modal-badge" style="font-size:11px;background:rgba(56,189,248,.12);
+              color:#38bdf8;border:1px solid rgba(56,189,248,.2);border-radius:99px;
+              padding:2px 8px;font-weight:600"></span>
+          </div>
+          <button onclick="closeDestModal()" style="width:28px;height:28px;border-radius:6px;
+            border:1px solid var(--border);background:transparent;cursor:pointer;
+            color:var(--text2);font-size:16px;display:flex;align-items:center;justify-content:center">✕</button>
+        </div>
+        <div style="display:flex;flex:1;overflow:hidden;min-height:0">
+          <div id="dest-modal-sidebar" style="width:210px;flex-shrink:0;border-right:1px solid var(--border);
+            overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:3px"></div>
+          <div id="dest-modal-body" style="flex:1;overflow-y:auto;padding:18px;min-width:0">
+            <div style="text-align:center;padding:40px;color:var(--text3)">
+              Selecciona un destino del panel izquierdo
+            </div>
     overlay.style.cssText = '';
     overlay.className = 'modal-overlay';
     overlay.onclick = e => { if (e.target === overlay) closeDestModal(); };
@@ -3804,6 +3852,18 @@ function closeDestModal() {
   ov.style.display = 'none';
 }
 
+function _destModalSelectTab(tName, btnEl) {
+  // Highlight tab activo
+  document.querySelectorAll('#dest-modal-sidebar button').forEach(b => {
+    b.style.background = '';
+    b.style.borderColor = 'transparent';
+    b.style.color = '';
+  });
+  const activeBtn = btnEl || document.getElementById('dest-tab-' + tName.replace(/\s/g,'_'));
+  if (activeBtn) {
+    activeBtn.style.background    = 'var(--bg2)';
+    activeBtn.style.borderColor   = 'var(--border)';
+  }
 function closeDestModal() {
   const ov = document.getElementById('dest-modal-overlay');
   if (!ov) return;
@@ -3828,6 +3888,16 @@ function _destModalSelectTab(tName, btnEl) {
 
   if (!evs.length) {
     body.innerHTML = `
+      <div style="text-align:center;padding:48px 24px;color:var(--text3)">
+        <div style="font-size:36px;margin-bottom:12px">📡</div>
+        <div style="font-size:14px;font-weight:600;color:var(--text2);margin-bottom:6px">
+          Sin envíos registrados
+        </div>
+        <div style="font-size:12px;line-height:1.6;max-width:280px;margin:0 auto">
+          El destino <strong style="color:var(--text)">${tName}</strong> está asignado
+          a esta unidad pero aún no ha recibido datos GPS.<br>
+          Los envíos aparecerán aquí en cuanto la unidad transmita.
+        </div>
       <div class="empty-state" style="padding:40px 20px">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
           style="width:32px;height:32px;margin-bottom:10px;opacity:.3">
@@ -3843,6 +3913,21 @@ function _destModalSelectTab(tName, btnEl) {
 
   // ── Resumen del último envío ──────────────────────────────────
   const summaryHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px">
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px">
+        <div class="label" style="margin-bottom:4px">Destino</div>
+        <div style="font-size:14px;font-weight:600">${tName}</div>
+      </div>
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px">
+        <div class="label" style="margin-bottom:4px">Total envíos</div>
+        <div style="font-size:14px;font-weight:600">${evs.length}</div>
+      </div>
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px">
+        <div class="label" style="margin-bottom:4px">Último envío</div>
+        <div style="font-size:13px">${_fmt(last.at)}</div>
+      </div>
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px">
+        <div class="label" style="margin-bottom:4px">Último resultado</div>
     <div class="dest-detail-stats">
       <div class="dest-stat-card">
         <div class="dest-stat-label">Destino</div>
@@ -3902,6 +3987,14 @@ function _destModalSelectTab(tName, btnEl) {
       </div>
 
       <!-- Tabla -->
+      <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden">
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead>
+            <tr style="background:var(--bg2);font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--text3)">
+              <th style="padding:8px 12px;text-align:left;font-weight:600">Fecha</th>
+              <th style="padding:8px 12px;text-align:left;font-weight:600">Resultado</th>
+              <th style="padding:8px 12px;text-align:left;font-weight:600">Respuesta</th>
+              <th style="padding:8px 12px;text-align:left;font-weight:600">Velocidad</th>
       <div class="table-wrap" style="max-height:300px">
         <table style="width:100%;border-collapse:collapse;font-size:12px">
           <thead>
