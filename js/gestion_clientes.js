@@ -29,11 +29,7 @@ async function renderGestionClientes() {
     setTimeout(() => renderGestionClientes(), 500); // reintentar en 500ms
     return;
   }
-  if (_gc_loading) return;
-  _gc_loading = true;
-  _gc_expanded.clear();
-  _gc_units_cache = {};
-
+   
   const container = document.getElementById('gc-container');
   if (!container) return;
 
