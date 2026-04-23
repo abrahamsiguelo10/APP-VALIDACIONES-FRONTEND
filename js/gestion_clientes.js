@@ -1,37 +1,53 @@
 /**
  * js/gestion_clientes.js
  * Vista admin "Gestión de Clientes" — módulo id: 'gestion_clientes'
- *
- * Funcionalidades:
- *  - Tabla de clientes con buscador
- *  - Gráficos de torta SVG (sin librerías externas)
- *  - Filas expandibles con unidades, estado y últimos reportes
- *  - CRUD de clientes (mismo formulario que settings > clientes)
- *  - Asignación de unidades inline
  */
 
 /* ════════════════════════════════════════════════════════════════
    ESTADO LOCAL
 ════════════════════════════════════════════════════════════════ */
-let _gc_clientes   = [];   // lista completa de clientes
-let _gc_filtered   = [];   // lista tras aplicar búsqueda
-let _gc_expanded   = new Set();  // ids de filas expandidas
-let _gc_units_cache = {};  // { [clienteId]: unitsArray }
-let _gc_loading    = false;
+let _gc_clientes    = [];
+let _gc_filtered    = [];
+let _gc_expanded    = new Set();
+let _gc_units_cache = {};
+let _gc_loading     = false;
 
 /* ════════════════════════════════════════════════════════════════
    ENTRADA — llamada desde nav.js al activar la vista
+   FIX 1: eliminado if(_gc_loading) duplicado
+   FIX 2: retry con límite de 5 intentos (300ms cada uno = 1.5s)
 ════════════════════════════════════════════════════════════════ */
 async function renderGestionClientes() {
-   if (_gc_loading) return;
-  if (!getToken()) {           // ← AGREGAR ESTAS 4 LÍNEAS
-    _gc_loading = false;
-    setTimeout(() => renderGestionClientes(), 500); // reintentar en 500ms
+  if (_gc_loading) return;
+
+  // FIX: si no hay token aún, reintentar hasta 5 veces con delay
+  if (!getToken()) {
+    let retries = 0;
+    const waitForToken = setInterval(() => {
+      retries++;
+      if (getToken()) {
+        clearInterval(waitForToken);
+        renderGestionClientes();
+      } else if (retries >= 5) {
+        clearInterval(waitForToken);
+        const container = document.getElementById('gc-container');
+        if (container) container.innerHTML = `
+          <div style="display:flex;flex-direction:column;align-items:center;
+                      justify-content:center;padding:60px;color:var(--text3);gap:16px">
+            <p>Sesión no disponible.</p>
+            <button class="btn primary" onclick="renderGestionClientes()">Reintentar</button>
+          </div>`;
+      }
+    }, 300);
     return;
   }
-   
+
+  _gc_loading = true;
+  _gc_expanded.clear();
+  _gc_units_cache = {};
+
   const container = document.getElementById('gc-container');
-  if (!container) return;
+  if (!container) { _gc_loading = false; return; }
 
   _gcShowLoading(container);
 
@@ -40,8 +56,12 @@ async function renderGestionClientes() {
     _gc_filtered  = [..._gc_clientes];
     _gcRender();
   } catch (e) {
-    container.innerHTML = `<div class="empty-state" style="color:var(--red)">
-      Error al cargar clientes: ${e.message}</div>`;
+    container.innerHTML = `
+      <div style="display:flex;flex-direction:column;align-items:center;
+                  justify-content:center;padding:60px;color:var(--red);gap:16px">
+        <p>Error al cargar clientes: ${e.message}</p>
+        <button class="btn primary" onclick="renderGestionClientes()">Reintentar</button>
+      </div>`;
   } finally {
     _gc_loading = false;
   }
@@ -79,7 +99,7 @@ function _gcRender() {
     </div>
 
     <!-- ── FORMULARIO INLINE ── -->
-    <div id="gc-form-inline" style="display:none" class="card" style="margin-bottom:16px">
+    <div id="gc-form-inline" style="display:none" class="card">
       <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end;flex-wrap:wrap">
         <div>
           <label class="label">Nombre <span style="color:var(--red)">*</span></label>
@@ -130,18 +150,14 @@ function _gcRender() {
    CHARTS SVG (sin librerías)
 ════════════════════════════════════════════════════════════════ */
 function _gcBuildCharts() {
-  const total   = _gc_filtered.length;
+  const total = _gc_filtered.length;
   if (!total) return '';
 
-  const activos   = _gc_filtered.filter(c => c.enabled).length;
-  const inactivos = total - activos;
-
-  // Unidades totales entre todos los clientes filtrados
-  const totalUnits  = _gc_filtered.reduce((s, c) => s + (c.total_units || 0), 0);
-  const totalDests  = _gc_filtered.reduce((s, c) => s + (c.total_destinations || 0), 0);
-
-  // "Reportando" = tuvo evento en las últimas 24 h
-  const ahora = Date.now();
+  const activos    = _gc_filtered.filter(c => c.enabled).length;
+  const inactivos  = total - activos;
+  const totalUnits = _gc_filtered.reduce((s, c) => s + (c.total_units || 0), 0);
+  const totalDests = _gc_filtered.reduce((s, c) => s + (c.total_destinations || 0), 0);
+  const ahora      = Date.now();
   const reportando = _gc_filtered.filter(c =>
     c.last_event_at && (ahora - new Date(c.last_event_at).getTime()) < 86400000
   ).length;
@@ -182,9 +198,7 @@ function _gcBuildCharts() {
 
 function _gcPie(segments) {
   const total = segments.reduce((s, x) => s + x.value, 0);
-  if (!total) {
-    return `<div style="text-align:center;padding:20px;color:var(--text3);font-size:12px">Sin datos</div>`;
-  }
+  if (!total) return `<div style="text-align:center;padding:20px;color:var(--text3);font-size:12px">Sin datos</div>`;
 
   const cx = 60, cy = 60, r = 50;
   let startAngle = -Math.PI / 2;
@@ -192,7 +206,7 @@ function _gcPie(segments) {
 
   segments.forEach(seg => {
     if (!seg.value) return;
-    const angle = (seg.value / total) * 2 * Math.PI;
+    const angle    = (seg.value / total) * 2 * Math.PI;
     const endAngle = startAngle + angle;
     const x1 = cx + r * Math.cos(startAngle);
     const y1 = cy + r * Math.sin(startAngle);
@@ -204,7 +218,6 @@ function _gcPie(segments) {
     startAngle = endAngle;
   });
 
-  // Círculo central (donut)
   paths += `<circle cx="${cx}" cy="${cy}" r="28" fill="var(--bg2,#1a1a2e)"/>`;
   paths += `<text x="${cx}" y="${cy+5}" text-anchor="middle"
                   font-size="16" font-weight="700" fill="var(--text1,#fff)">${total}</text>`;
@@ -275,9 +288,8 @@ function _gcBuildRows() {
             <button class="btn sm ${c.enabled ? 'danger' : 'success'}" title="${c.enabled ? 'Desactivar' : 'Activar'}"
                     onclick="gcToggleCliente('${c.id}')">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                ${c.enabled
-                  ? '<path d="M18.36 6.64A9 9 0 0 1 20 12a9 9 0 1 1-3.64-7.36"/><line x1="12" y1="2" x2="12" y2="12"/>'
-                  : '<path d="M18.36 6.64A9 9 0 0 1 20 12a9 9 0 1 1-3.64-7.36"/><line x1="12" y1="2" x2="12" y2="12"/>'}
+                <path d="M18.36 6.64A9 9 0 0 1 20 12a9 9 0 1 1-3.64-7.36"/>
+                <line x1="12" y1="2" x2="12" y2="12"/>
               </svg>
             </button>
             <button class="btn sm danger" title="Eliminar" onclick="gcDeleteCliente('${c.id}','${c.nombre}')">
@@ -316,10 +328,9 @@ function _gcBuildUnitsDetail(clienteId) {
   }
 
   const rows = units.map(u => {
-    const ahora    = Date.now();
-    const diffMs   = u.last_event_at ? ahora - new Date(u.last_event_at).getTime() : null;
+    const ahora  = Date.now();
+    const diffMs = u.last_event_at ? ahora - new Date(u.last_event_at).getTime() : null;
 
-    // Estado: activo/inactivo (enabled) + reportando (evento < 10 min)
     let estadoBadge;
     if (!u.enabled) {
       estadoBadge = '<span class="badge red">Deshabilitada</span>';
@@ -366,7 +377,9 @@ function _gcBuildUnitsDetail(clienteId) {
             : '<span style="color:var(--text3)">—</span>'}
         </td>
         <td>
-          <div style="display:flex;gap:4px;flex-wrap:wrap">${destinos || '<span style="color:var(--text3);font-size:11px">Sin destinos</span>'}</div>
+          <div style="display:flex;gap:4px;flex-wrap:wrap">
+            ${destinos || '<span style="color:var(--text3);font-size:11px">Sin destinos</span>'}
+          </div>
         </td>
       </tr>`;
   }).join('');
@@ -407,8 +420,7 @@ function _gcBuildUnitsDetail(clienteId) {
 async function gcToggleExpand(clienteId) {
   if (_gc_expanded.has(clienteId)) {
     _gc_expanded.delete(clienteId);
-    const detailRow = document.getElementById(`gc-detail-${clienteId}`);
-    if (detailRow) detailRow.remove();
+    document.getElementById(`gc-detail-${clienteId}`)?.remove();
     const mainRow = document.querySelector(`tr.gc-row[data-id="${clienteId}"]`);
     if (mainRow) {
       mainRow.classList.remove('gc-row-expanded');
@@ -425,7 +437,6 @@ async function gcToggleExpand(clienteId) {
     const btn = mainRow.querySelector('.gc-expand-btn svg');
     if (btn) btn.style.transform = 'rotate(90deg)';
 
-    // Insertar fila de detalle después del main row
     const detailTr = document.createElement('tr');
     detailTr.className = 'gc-detail-row';
     detailTr.id = `gc-detail-${clienteId}`;
@@ -442,7 +453,6 @@ async function gcToggleExpand(clienteId) {
     mainRow.insertAdjacentElement('afterend', detailTr);
   }
 
-  // Cargar unidades si no están en cache
   if (!_gc_units_cache[clienteId]) {
     try {
       _gc_units_cache[clienteId] = await api.get(`/clientes/${clienteId}/units`);
@@ -482,7 +492,6 @@ function gcEditCliente(id) {
   document.getElementById('gc-f-error').style.display  = 'none';
   document.getElementById('gc-form-inline').style.display = '';
   document.getElementById('gc-f-nombre').focus();
-  // scroll al form
   document.getElementById('gc-form-inline').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
@@ -515,7 +524,6 @@ async function gcSaveCliente() {
     _gc_expanded.clear();
     _gc_units_cache = {};
     await renderGestionClientes();
-    // Refrescar también el selector en el modal de asignación (si existe)
     if (typeof loadClientesForSelect === 'function') loadClientesForSelect();
   } catch (e) {
     errEl.textContent = e.message || 'Error al guardar.';
@@ -536,7 +544,7 @@ async function gcToggleCliente(id) {
     await renderGestionClientes();
     if (typeof loadClientesForSelect === 'function') loadClientesForSelect();
   } catch (e) {
-    showToast('Error', e.message || 'No se pudo actualizar.', 'error');
+    showToast('Error', e.message || 'No se pudo actualizar.');
   }
 }
 
@@ -550,7 +558,7 @@ async function gcDeleteCliente(id, nombre) {
     await renderGestionClientes();
     if (typeof loadClientesForSelect === 'function') loadClientesForSelect();
   } catch (e) {
-    showToast('Error', e.message || 'No se pudo eliminar.', 'error');
+    showToast('Error', e.message || 'No se pudo eliminar.');
   }
 }
 
@@ -566,36 +574,36 @@ function gcFiltrar() {
       )
     : [..._gc_clientes];
 
-  // Re-render solo el tbody y los charts (más rápido que rebuild completo)
-  const tbody = document.getElementById('gc-tbody');
-  if (tbody) tbody.innerHTML = _gcBuildRows();
+  const tbody  = document.getElementById('gc-tbody');
+  if (tbody)  tbody.innerHTML  = _gcBuildRows();
   const charts = document.getElementById('gc-charts');
   if (charts) charts.innerHTML = _gcBuildCharts();
-  const count = document.getElementById('gc-count');
-  if (count) count.textContent = `${_gc_filtered.length} cliente${_gc_filtered.length !== 1 ? 's' : ''}`;
+  const count  = document.getElementById('gc-count');
+  if (count)  count.textContent = `${_gc_filtered.length} cliente${_gc_filtered.length !== 1 ? 's' : ''}`;
 }
 
 /* ════════════════════════════════════════════════════════════════
-   DELEGAR GESTIÓN DE UNIDADES → modal existente en clientes.js
+   GESTIÓN DE UNIDADES — reutiliza modal de clientes.js
+   FIX: sincroniza _clientes antes de abrir para evitar fallo silencioso
 ════════════════════════════════════════════════════════════════ */
 function gcOpenAsignarUnidades(clienteId) {
-  // Reutiliza el modal openAsignarUnidades ya definido en clientes.js
-  if (typeof openAsignarUnidades === 'function') {
-    // Sincronizar _clientes del módulo anterior si es necesario
-    if (typeof _clientes !== 'undefined' && !_clientes.length) {
-      _clientes = [..._gc_clientes];
-    }
-    openAsignarUnidades(clienteId);
-    // Al cerrar el modal, refrescar esta vista
-    const origClose = window.closeAsignarModal;
-    window.closeAsignarModal = function() {
-      origClose?.();
-      delete _gc_units_cache[clienteId];
-      renderGestionClientes();
-      // restaurar
-      window.closeAsignarModal = origClose;
-    };
+  if (typeof openAsignarUnidades !== 'function') return;
+
+  // FIX: siempre sincronizar _clientes con los datos actuales de esta vista
+  if (typeof _clientes !== 'undefined') {
+    _clientes = [..._gc_clientes];
   }
+
+  openAsignarUnidades(clienteId);
+
+  // Refrescar esta vista al cerrar el modal
+  const origClose = window.closeAsignarModal;
+  window.closeAsignarModal = function() {
+    if (typeof origClose === 'function') origClose();
+    delete _gc_units_cache[clienteId];
+    renderGestionClientes();
+    window.closeAsignarModal = origClose; // restaurar
+  };
 }
 
 /* ════════════════════════════════════════════════════════════════
@@ -604,11 +612,11 @@ function gcOpenAsignarUnidades(clienteId) {
 function _gcTimeAgo(dateStr) {
   const diff = Date.now() - new Date(dateStr).getTime();
   const s = Math.floor(diff / 1000);
-  if (s < 60)   return `hace ${s}s`;
+  if (s < 60)  return `hace ${s}s`;
   const m = Math.floor(s / 60);
-  if (m < 60)   return `hace ${m}min`;
+  if (m < 60)  return `hace ${m}min`;
   const h = Math.floor(m / 60);
-  if (h < 24)   return `hace ${h}h`;
+  if (h < 24)  return `hace ${h}h`;
   const d = Math.floor(h / 24);
   return `hace ${d}d`;
 }
