@@ -23,6 +23,12 @@ let _gc_loading    = false;
    ENTRADA — llamada desde nav.js al activar la vista
 ════════════════════════════════════════════════════════════════ */
 async function renderGestionClientes() {
+   if (_gc_loading) return;
+  if (!getToken()) {           // ← AGREGAR ESTAS 4 LÍNEAS
+    _gc_loading = false;
+    setTimeout(() => renderGestionClientes(), 500); // reintentar en 500ms
+    return;
+  }
   if (_gc_loading) return;
   _gc_loading = true;
   _gc_expanded.clear();
