@@ -42,7 +42,9 @@ const GPS_SOURCES = [
   { value: 'moving',           label: 'En movimiento (true/false según velocidad > 0)',              group: 'GPS' },
   { value: 'unix_timestamp_ms', label: 'Epoch milisegundos (UTC)' },
   { value: 'unix_timestamp', label: 'Epoch segundos (UTC)' },
+  { value: 'Dirección',           label: 'string Dirección de la unidad',              group: 'GPS' },
 
+  
   // ── Datos de la unidad (de la DB de Síguelo) ──
   { value: 'unit_plate',       label: 'Patente de la unidad',                    group: 'Unidad' },
   { value: 'unit_plate_guion', label: 'Patente de la unidad (con guión AA-BB-12)', group: 'Unidad' },
