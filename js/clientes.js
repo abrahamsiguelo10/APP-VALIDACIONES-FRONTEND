@@ -1,5 +1,7 @@
 /**
  * clientes.js — Gestión de clientes con token de validador
+ * FIX: openAsignarUnidades ahora acepta ser llamado desde gestion_clientes.js
+ *      aunque _clientes esté vacío, recargando los datos si es necesario.
  */
 
 let _clientes = [];
@@ -166,7 +168,7 @@ async function saveCliente() {
     }
     closeClienteForm();
     await renderClientesTable();
-    loadClientesForSelect(); // refrescar selector del modal
+    loadClientesForSelect();
   } catch (e) {
     errEl.textContent = e.message || 'Error al guardar.';
     errEl.style.display = '';
@@ -204,7 +206,7 @@ async function deleteCliente(id, nombre) {
 async function regenToken(id, nombre) {
   if (!confirm(`¿Regenerar el token de "${nombre}"? El link anterior dejará de funcionar.`)) return;
   try {
-    const res = await api.post(`/clientes/${id}/regen-token`, {});
+    await api.post(`/clientes/${id}/regen-token`, {});
     showToast('Token regenerado', 'Copia el nuevo token antes de cerrar.');
     await renderClientesTable();
   } catch (_) {}
@@ -220,14 +222,14 @@ async function setClientePassword(id, nombre) {
   const password = prompt(`Contraseña de acceso para "${nombre}":\n(Mínimo 6 caracteres)`);
   if (password === null) return;
   if (!password || password.length < 6) {
-    showToast('Error', 'La contraseña debe tener al menos 6 caracteres.', 'error');
+    showToast('Error', 'La contraseña debe tener al menos 6 caracteres.');
     return;
   }
   try {
     await api.post(`/clientes/${id}/set-password`, { password });
     showToast('Contraseña establecida', `Acceso configurado para "${nombre}".`);
   } catch (e) {
-    showToast('Error', e.message || 'No se pudo establecer la contraseña.', 'error');
+    showToast('Error', e.message || 'No se pudo establecer la contraseña.');
   }
 }
 
@@ -242,7 +244,6 @@ function copyValidadorLink(token) {
 async function loadClientesForSelect() {
   const sel = document.getElementById('modal-cliente-id');
   if (!sel) return;
-
   try {
     const clientes = await api.get('/clientes');
     const current  = sel.value;
@@ -256,9 +257,7 @@ async function loadClientesForSelect() {
 }
 
 /* ── Hook: cargar tabla cuando se activa la pestaña ─────────── */
-// Sobreescribe el switchSettingsTab original para interceptar 'clientes'
 (function() {
-  // Al cambiar de pestaña en settings: cerrar el form y recargar tabla si es 'clientes'
   const _origSettings = window.switchSettingsTab;
   window.switchSettingsTab = function(tab) {
     closeClienteForm();
@@ -272,7 +271,22 @@ let _asignandoClienteId = null;
 
 async function openAsignarUnidades(clienteId) {
   _asignandoClienteId = clienteId;
-  const c = _clientes.find(x => x.id === clienteId);
+
+  // FIX: si _clientes está vacío (llamada desde gestion_clientes.js),
+  // buscar el cliente directamente en el array de esa vista o hacer fetch
+  let c = _clientes.find(x => x.id === clienteId);
+  if (!c) {
+    try {
+      // Intentar obtener el cliente directamente del backend
+      c = await api.get(`/clientes/${clienteId}`);
+      // Guardarlo en _clientes para que las funciones internas funcionen
+      if (c && !_clientes.find(x => x.id === c.id)) {
+        _clientes.push(c);
+      }
+    } catch (_) {
+      return; // si falla, no abrir el modal
+    }
+  }
   if (!c) return;
 
   const modal = document.getElementById('asignar-modal');
@@ -287,8 +301,8 @@ async function openAsignarUnidades(clienteId) {
   modal.classList.add('show');
 
   try {
-    const units = await api.get('/units');
-    const assigned = units.filter(u => u.cliente_id === clienteId);
+    const units      = await api.get('/units');
+    const assigned   = units.filter(u => u.cliente_id === clienteId);
     const unassigned = units.filter(u => !u.cliente_id);
 
     document.getElementById('asignar-list').innerHTML = `
