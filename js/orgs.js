@@ -17,6 +17,7 @@ const GPS_SOURCES = [
   // ── Datos GPS (automáticos del dispositivo) ──
   { value: 'lat',            label: 'Latitud',                          group: 'GPS' },
   { value: 'lon',            label: 'Longitud',                         group: 'GPS' },
+  { value: 'address',        label: 'Dirección (reverse geocoding)',      group: 'GPS' },
   { value: 'speed',          label: 'Velocidad (km/h)',                 group: 'GPS' },
   { value: 'heading',        label: 'Dirección / Heading (°)',          group: 'GPS' },
   { value: 'ignition',       label: 'Ignición (true/false)',            group: 'GPS' },
