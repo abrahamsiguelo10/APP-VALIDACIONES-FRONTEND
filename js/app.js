@@ -27,9 +27,8 @@ async function openCreateModal() {
   document.getElementById('modal-imei').value          = '';
   document.getElementById('modal-imei').readOnly       = false;
   document.getElementById('modal-imei').style.opacity  = '1';
-  if (document.getElementById('modal-cliente'))    document.getElementById('modal-cliente').value    = '';
-  if (document.getElementById('modal-rut'))        document.getElementById('modal-rut').value        = '';
-
+  if (document.getElementById('modal-cliente')) document.getElementById('modal-cliente').value = '';
+  if (document.getElementById('modal-rut'))     document.getElementById('modal-rut').value     = '';
 
   const saveBtn       = document.getElementById('modal-save-btn');
   saveBtn.textContent = 'Guardar entrada';
@@ -38,28 +37,24 @@ async function openCreateModal() {
   const prev = document.getElementById('edit-dest-section');
   if (prev) prev.remove();
 
-  // Mostrar modal con spinner mientras carga
   document.getElementById('modal-dest-grid').innerHTML = `
     <div style="text-align:center;padding:24px;color:var(--text3)">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
         stroke-width="2" style="animation:spin 1s linear infinite;vertical-align:middle;margin-right:6px">
         <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
-      </svg>
-      Cargando destinos…
+      </svg>Cargando destinos…
     </div>`;
   const ds = document.getElementById('dest-search');
   if (ds) ds.value = '';
   _modalGoStep(1);
   document.getElementById('entry-modal').classList.add('show');
 
-  // Siempre recargar ORGS frescos
   await loadOrgsFromAPI();
   _renderDestStep();
 }
 
 function closeModal() {
   document.getElementById('entry-modal').classList.remove('show');
-  // Restaurar estado para próxima apertura en modo creación
   _editingImei = null;
   const imeiInput = document.getElementById('modal-imei');
   if (imeiInput) { imeiInput.readOnly = false; imeiInput.style.opacity = ''; }
@@ -70,10 +65,8 @@ function closeModal() {
 }
 
 function _modalGoStep(n) {
-  document.getElementById('msi-1').className = n === 1
-    ? 'modal-step-indicator active' : 'modal-step-indicator done';
-  document.getElementById('msi-2').className = n === 2
-    ? 'modal-step-indicator active' : 'modal-step-indicator';
+  document.getElementById('msi-1').className = n === 1 ? 'modal-step-indicator active' : 'modal-step-indicator done';
+  document.getElementById('msi-2').className = n === 2 ? 'modal-step-indicator active' : 'modal-step-indicator';
   document.getElementById('modal-step-dest').style.display = n === 1 ? '' : 'none';
   document.getElementById('modal-step-form').style.display = n === 2 ? '' : 'none';
 }
@@ -94,7 +87,7 @@ function _renderDestStep() {
   }
 
   grid.innerHTML = orgs.map(([id, org]) => {
-    const fieldCount = (org.fields||[])
+    const fieldCount = (org.fields || [])
       .filter(f => f.apiKey && !['patente','imei'].includes(f.apiKey.toLowerCase())).length;
     return `
       <div class="dest-card" onclick="modalSelectDest('${id}')">
@@ -131,9 +124,9 @@ function modalSelectDest(orgId) {
            overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:260px">${org.apiUrl}</span>`
       : ''}`;
 
-  const fields = [...(org.fields||[])]
-  .filter(f => (f.apiKey || f.label) && !['patente','imei'].includes((f.apiKey||'').toLowerCase()))
-  .sort((a, b) => a.order - b.order);
+  const fields = [...(org.fields || [])]
+    .filter(f => (f.apiKey || f.label) && !['patente','imei'].includes((f.apiKey||'').toLowerCase()))
+    .sort((a, b) => a.order - b.order);
 
   const wrap  = document.getElementById('modal-dest-fields-wrap');
   const title = document.getElementById('modal-dest-fields-title');
@@ -188,14 +181,13 @@ document.getElementById('asignar-modal').addEventListener('click', e => {
 
 /* ══════════════════════════════════════════════════════════════
    VALIDADOR DE UNIDADES — v2
-   ══════════════════════════════════════════════════════════════ */
+══════════════════════════════════════════════════════════════ */
 
-let _valUnit      = null;   // unidad actual consultada
-let _valGpsData   = null;   // { status, responses }
-let _valMap       = null;   // instancia Leaflet
-let _valMapLayers = [];     // polyline + markers actuales
+let _valUnit      = null;
+let _valGpsData   = null;
+let _valMap       = null;
+let _valMapLayers = [];
 
-/* ── Consultar ──────────────────────────────────────────────── */
 async function runValidator() {
   const patente = document.getElementById('val-patente').value.trim().toUpperCase();
   const imei    = document.getElementById('val-imei').value.trim();
@@ -208,11 +200,9 @@ async function runValidator() {
   const btn = document.getElementById('btn-validar');
   btn.disabled    = true;
   btn.textContent = 'Consultando…';
-
-  // Reset GPS data
   _valGpsData = null;
+
   try {
-    // 1. Buscar unidad en BD
     const data = imei
       ? await api.get(`/units/${imei}`)
       : await api.get(`/units?search=${encodeURIComponent(patente)}`);
@@ -221,8 +211,6 @@ async function runValidator() {
 
     const panel = document.getElementById('result-panel');
     panel.classList.add('show');
-
-    // Volver al tab de destinos
     switchValTab('destinos', document.querySelector('.val-tab'));
 
     if (!_valUnit) {
@@ -230,14 +218,10 @@ async function runValidator() {
       return;
     }
 
-    // 2. Render datos básicos
     _renderValBasic(_valUnit);
-
-    // 3. Cargar GPS en paralelo (no bloquea el render básico)
     _loadValGps(_valUnit.plate);
 
   } catch (_) {
-    // api.js ya mostró toast
   } finally {
     btn.disabled    = false;
     btn.textContent = 'Consultar';
@@ -259,13 +243,13 @@ function _renderValNotFound(patente, imei) {
   document.getElementById('res-gps-badge').style.display   = 'none';
   document.getElementById('btn-export').style.display      = 'none';
   document.getElementById('btn-certificado').style.display = 'none';
-  const _elDestNF = document.getElementById('res-destinos-list') || document.getElementById('res-destinos');
-  if (_elDestNF) _elDestNF.innerHTML = '<span style="font-size:13px;color:var(--text2)">Unidad no registrada en el sistema.</span>';
+  const destEl = document.getElementById('res-destinos-list') || document.getElementById('res-destinos');
+  if (destEl) destEl.innerHTML = '<span style="font-size:13px;color:var(--text2)">Unidad no registrada en el sistema.</span>';
   document.getElementById('res-historial-tbody').innerHTML = '';
-  document.getElementById('res-historial-table').style.display  = 'none';
-  document.getElementById('res-historial-empty').style.display  = '';
+  document.getElementById('res-historial-table').style.display   = 'none';
+  document.getElementById('res-historial-empty').style.display   = '';
   document.getElementById('res-historial-loading').style.display = 'none';
-  document.getElementById('tab-count-historial').textContent    = '';
+  document.getElementById('tab-count-historial').textContent     = '';
 }
 
 function _renderValBasic(unit) {
@@ -285,10 +269,9 @@ function _renderValBasic(unit) {
   badge.className   = unit.enabled ? 'badge green' : 'badge red';
 
   const gpsBadge = document.getElementById('res-gps-badge');
-  gpsBadge.textContent = 'GPS cargando…';
+  gpsBadge.textContent   = 'GPS cargando…';
   gpsBadge.style.display = '';
 
-  // Destinos
   const destList = document.getElementById('res-destinos-list') || document.getElementById('res-destinos');
   if (!(unit.destinations||[]).length) {
     destList.innerHTML = '<span style="font-size:13px;color:var(--text2)">Sin destinos asignados</span>';
@@ -299,7 +282,6 @@ function _renderValBasic(unit) {
       </span>`).join('');
   }
 
-  // Historial — mostrar spinner mientras carga GPS
   document.getElementById('res-historial-loading').style.display  = '';
   document.getElementById('res-historial-table').style.display    = 'none';
   document.getElementById('res-historial-empty').style.display    = 'none';
@@ -313,7 +295,6 @@ async function _loadValGps(plate) {
     _valGpsData = data;
     _renderValGps(data);
   } catch (e) {
-    // GPS no disponible — rellenar con "–"
     document.getElementById('res-ping').textContent      = 'Sin datos GPS';
     document.getElementById('res-speed').textContent     = '–';
     document.getElementById('res-ignition').textContent  = '–';
@@ -326,7 +307,6 @@ async function _loadValGps(plate) {
 }
 
 function _renderValGps({ status, responses }) {
-  // — GPS badge / ping —
   const gpsBadge = document.getElementById('res-gps-badge');
   if (status?.isTransmitting && status?.tcpAgeMinutes != null) {
     const age = Math.round(status.tcpAgeMinutes);
@@ -345,37 +325,29 @@ function _renderValGps({ status, responses }) {
       : `${age} min atrás`;
   } else {
     gpsBadge.textContent = 'Sin transmisión';
-  gpsBadge.className   = 'badge red';
-  document.getElementById('res-ping').textContent     = '–';
-  document.getElementById('res-speed').textContent    = '–';
-  document.getElementById('res-ignition').textContent = '–';
+    gpsBadge.className   = 'badge red';
+    document.getElementById('res-ping').textContent     = '–';
+    document.getElementById('res-speed').textContent    = '–';
+    document.getElementById('res-ignition').textContent = '–';
   }
 
-  // — Destinos: siempre al final, independiente del estado GPS —
   _renderValDestinos(status, responses);
 
-  // — Último dato de posición — solo mostrar si hay transmisión activa —
   const results = responses?.results || [];
-  const lastWithTx = results.find(r => r.tx?.lat && r.tx?.lon)
-                || results.find(r => r.tx);
+  const lastWithTx = results.find(r => r.tx?.lat && r.tx?.lon) || results.find(r => r.tx);
 
   if (status?.isTransmitting && lastWithTx?.tx) {
     const tx = lastWithTx.tx;
     document.getElementById('res-speed').textContent    = tx.speed != null ? `${tx.speed} km/h` : '–';
     document.getElementById('res-ignition').textContent = tx.ignition ? '🟢 Encendida' : '🔴 Apagada';
   } else if (!status?.isTransmitting) {
-    // Sin transmisión — limpiar datos de velocidad e ignición
     document.getElementById('res-speed').textContent    = '–';
     document.getElementById('res-ignition').textContent = '–';
   }
 
-  // — Historial tabla —
   _renderValHistorial(results);
 
-  // — Mapa: todos los puntos con coordenadas válidas —
-  const pointsWithCoords = results
-    .filter(r => r.tx?.lat && r.tx?.lon)
-    .map(r => r.tx);
+  const pointsWithCoords = results.filter(r => r.tx?.lat && r.tx?.lon).map(r => r.tx);
   _renderValMapa(pointsWithCoords);
 }
 
@@ -389,30 +361,28 @@ function _renderValHistorial(results) {
   loading.style.display = 'none';
 
   if (!results.length) {
-    empty.style.display  = '';
-    table.style.display  = 'none';
-    count.textContent    = '';
+    empty.style.display = '';
+    table.style.display = 'none';
+    count.textContent   = '';
     return;
   }
 
-  count.textContent = results.length;
+  count.textContent   = results.length;
   table.style.display = '';
   empty.style.display = 'none';
 
   tbody.innerHTML = results.map(r => {
-    const hora    = r.at ? new Date(r.at).toLocaleString('es-CL', { hour:'2-digit', minute:'2-digit', second:'2-digit', day:'2-digit', month:'2-digit' }) : '–';
-    const dest    = r.target || r.destination_id || '–';
-    const ok      = r.ok;
-    const vel     = r.tx?.speed != null ? `${r.tx.speed} km/h` : '–';
-    const ign     = r.tx?.ignition ? '🟢' : (r.tx?.ignition === false ? '🔴' : '–');
-    // Respuesta: si es JSON con "message" mostrarlo, sino truncar
-    let respText  = '–';
+    const hora   = r.at ? new Date(r.at).toLocaleString('es-CL', { hour:'2-digit', minute:'2-digit', second:'2-digit', day:'2-digit', month:'2-digit' }) : '–';
+    const dest   = r.target || r.destination_id || '–';
+    const ok     = r.ok;
+    const vel    = r.tx?.speed != null ? `${r.tx.speed} km/h` : '–';
+    const ign    = r.tx?.ignition ? '🟢' : (r.tx?.ignition === false ? '🔴' : '–');
+    let respText = '–';
     try {
       const parsed = typeof r.response === 'string' ? JSON.parse(r.response) : r.response;
       respText = parsed?.message || parsed?.error || parsed?.status || JSON.stringify(parsed).slice(0, 60);
     } catch { respText = String(r.response || '–').slice(0, 60); }
 
-    // ok === true → OK, ok === false → Error, ok === null → Sin envío
     const okClass = ok === true ? 'val-resp-ok' : ok === false ? 'val-resp-fail' : 'val-resp-pending';
     const okText  = ok === true ? '✓ OK'        : ok === false ? '✗ Error'       : '– Sin envío';
 
@@ -432,7 +402,6 @@ async function loadValRecibidos() {
   if (!_valUnit) return;
   const plate = _valUnit.plate;
 
-  const panel   = document.getElementById('val-panel-recibidos');
   const loading = document.getElementById('res-recibidos-loading');
   const table   = document.getElementById('res-recibidos-table');
   const empty   = document.getElementById('res-recibidos-empty');
@@ -463,28 +432,24 @@ async function loadValRecibidos() {
 
     tbody.innerHTML = data.events.map(e => {
       const fecha = (e.wialon_ts || e.received_at)
-  ? new Date(e.wialon_ts || e.received_at).toLocaleString('es-CL', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit' })
-  : '–';
-      const dest    = e.dest_name || e.dest_id || '–';
-      const ok      = e.forward_ok;
-      const vel     = e.speed != null ? `${Math.round(e.speed)} km/h` : '–';
-      const ign     = e.ignition === true ? '🟢' : e.ignition === false ? '🔴' : '–';
+        ? new Date(e.wialon_ts || e.received_at).toLocaleString('es-CL', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit' })
+        : '–';
+      const dest  = e.dest_name || e.dest_id || '–';
+      const ok    = e.forward_ok;
+      const vel   = e.speed != null ? `${Math.round(e.speed)} km/h` : '–';
+      const ign   = e.ignition === true ? '🟢' : e.ignition === false ? '🔴' : '–';
 
-      // Parsear forward_resp — formato: "200 | {json}" o "200 OK" o json directo
-      let respText = '–';
-      let respFull = e.forward_resp || '';
-      let respJson = '';
+      let respText = '–', respFull = e.forward_resp || '', respJson = '';
       try {
-        // Extraer la parte JSON después del separador " | "
         const pipeIdx = respFull.indexOf(' | ');
-        const jsonPart = pipeIdx >= 0 ? respFull.slice(pipeIdx + 3) : respFull;
+        const jsonPart  = pipeIdx >= 0 ? respFull.slice(pipeIdx + 3) : respFull;
         const statusPart = pipeIdx >= 0 ? respFull.slice(0, pipeIdx) : '';
-        if (jsonPart && jsonPart.trim().startsWith('{') || jsonPart.trim().startsWith('[')) {
+        if (jsonPart && (jsonPart.trim().startsWith('{') || jsonPart.trim().startsWith('['))) {
           const parsed = JSON.parse(jsonPart);
-          respJson = JSON.stringify(parsed, null, 2); // pretty print para el popup
+          respJson = JSON.stringify(parsed, null, 2);
           respText = parsed?.message || parsed?.error || parsed?.status
             || parsed?.code || parsed?.detail || parsed?.description
-            || parsed?.success !== undefined ? `success:${parsed.success}` : ''
+            || (parsed?.success !== undefined ? `success:${parsed.success}` : '')
             || jsonPart.slice(0, 80);
         } else {
           respText = (statusPart || jsonPart || '–').slice(0, 80);
@@ -513,12 +478,10 @@ async function loadValRecibidos() {
           white-space:nowrap;font-family:monospace;font-size:10px;color:var(--text2);cursor:pointer"
           title="Click para ver respuesta completa"
           onclick="_showRespJson(this.dataset.resp)"
-          data-resp="${(respJson||respFull).replace(/"/g,'&quot;').replace(/'/g,'&#39;')}"
-          style="cursor:pointer;text-decoration:underline dotted">${respText || '–'}</td>
+          data-resp="${(respJson||respFull).replace(/"/g,'&quot;').replace(/'/g,'&#39;')}">${respText || '–'}</td>
       </tr>`;
     }).join('');
 
-    // Cargar filtro de destinos si aún no tiene opciones
     if (filter && filter.options.length <= 1) {
       try {
         const dests = await api.get(`/admin/gps-events/${encodeURIComponent(plate)}/destinations`);
@@ -537,12 +500,10 @@ async function loadValRecibidos() {
   }
 }
 
-/* ── Modal para ver respuesta JSON completa ──────────────────── */
+/* ── Modal JSON respuesta completa ───────────────────────────── */
 function _showRespJson(raw) {
-  // Intentar pretty-print si es JSON
   let display = raw || '(sin respuesta)';
   try {
-    // Si viene con formato "200 | {...}", extraer solo el JSON
     const pipeIdx = raw.indexOf(' | ');
     const jsonPart = pipeIdx >= 0 ? raw.slice(pipeIdx + 3) : raw;
     const status   = pipeIdx >= 0 ? raw.slice(0, pipeIdx) : '';
@@ -550,49 +511,39 @@ function _showRespJson(raw) {
     display = (status ? `HTTP ${status}\n\n` : '') + JSON.stringify(parsed, null, 2);
   } catch { display = raw || '(sin respuesta)'; }
 
-  // Crear modal
   const existing = document.getElementById('resp-json-modal');
   if (existing) existing.remove();
 
   const modal = document.createElement('div');
   modal.id = 'resp-json-modal';
-  modal.style.cssText = `
-    position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;
-    display:flex;align-items:center;justify-content:center;padding:24px
-  `;
+  modal.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;
+    display:flex;align-items:center;justify-content:center;padding:24px`;
   modal.innerHTML = `
     <div style="background:var(--bg,#1e293b);border:1px solid var(--border,#334155);
       border-radius:12px;max-width:600px;width:100%;max-height:80vh;
       display:flex;flex-direction:column;overflow:hidden">
       <div style="display:flex;align-items:center;justify-content:space-between;
         padding:14px 18px;border-bottom:1px solid var(--border,#334155)">
-        <span style="font-weight:600;font-size:14px;color:var(--text,#e2e8f0)">
-          Respuesta de la integración
-        </span>
+        <span style="font-weight:600;font-size:14px;color:var(--text,#e2e8f0)">Respuesta de la integración</span>
         <button onclick="document.getElementById('resp-json-modal').remove()"
-          style="background:none;border:none;color:var(--text2,#94a3b8);
-          font-size:18px;cursor:pointer;padding:4px 8px">✕</button>
+          style="background:none;border:none;color:var(--text2,#94a3b8);font-size:18px;cursor:pointer;padding:4px 8px">✕</button>
       </div>
       <div style="overflow-y:auto;padding:16px">
-        <pre style="margin:0;font-size:12px;font-family:monospace;
-          color:var(--text,#e2e8f0);white-space:pre-wrap;word-break:break-all;
-          line-height:1.6">${display.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</pre>
+        <pre style="margin:0;font-size:12px;font-family:monospace;color:var(--text,#e2e8f0);
+          white-space:pre-wrap;word-break:break-all;line-height:1.6">${display.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</pre>
       </div>
       <div style="padding:12px 18px;border-top:1px solid var(--border,#334155);
         display:flex;justify-content:flex-end;gap:8px">
-        <button onclick="navigator.clipboard.writeText(${JSON.stringify(display)
-          .replace(/</g,'&lt;')}).then(()=>showToast('Copiado','JSON copiado al portapapeles'))"
+        <button onclick="navigator.clipboard.writeText(${JSON.stringify(display).replace(/</g,'&lt;')}).then(()=>showToast('Copiado','JSON copiado al portapapeles'))"
           class="btn sm">📋 Copiar</button>
-        <button onclick="document.getElementById('resp-json-modal').remove()"
-          class="btn sm">Cerrar</button>
+        <button onclick="document.getElementById('resp-json-modal').remove()" class="btn sm">Cerrar</button>
       </div>
-    </div>
-  `;
+    </div>`;
   modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
   document.body.appendChild(modal);
 }
 
-// points = array de tx objects ordenados del más reciente al más antiguo
+/* ── Mapa ────────────────────────────────────────────────────── */
 function _renderValMapa(points) {
   const noData = document.getElementById('res-mapa-nodata');
   const mapDiv = document.getElementById('val-map');
@@ -607,7 +558,6 @@ function _renderValMapa(points) {
   noData.style.display = 'none';
   mapDiv.style.display = '';
 
-  // Fecha del punto más reciente
   const latest = points[0];
   if (latest.fechaHoraISO || latest.time_epoch) {
     const d = latest.fechaHoraISO
@@ -617,40 +567,25 @@ function _renderValMapa(points) {
       `Última posición: ${d.toLocaleString('es-CL')} · ${points.length} punto${points.length !== 1 ? 's' : ''}`;
   }
 
-  // Inicializar mapa Leaflet una sola vez
   if (!_valMap) {
     _valMap = L.map('val-map', { zoomControl: true, attributionControl: true });
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 18,
-      attribution: '© OpenStreetMap'
+      maxZoom: 18, attribution: '© OpenStreetMap'
     }).addTo(_valMap);
   }
 
-  // Limpiar layers anteriores
   _valMapLayers.forEach(l => _valMap.removeLayer(l));
   _valMapLayers = [];
 
-  // Coordenadas en orden cronológico (invertir — la API devuelve más reciente primero)
   const coords = [...points].reverse().map(p => [parseFloat(p.lat), parseFloat(p.lon)]);
 
-  // Polyline de ruta
-  const polyline = L.polyline(coords, {
-    color: '#63b3ed',
-    weight: 3,
-    opacity: 0.7,
-    dashArray: null,
-  }).addTo(_valMap);
+  const polyline = L.polyline(coords, { color: '#63b3ed', weight: 3, opacity: 0.7 }).addTo(_valMap);
   _valMapLayers.push(polyline);
 
-  // Puntos intermedios — círculos pequeños grises
   coords.slice(0, -1).forEach(([lat, lon], i) => {
-    const tx = points[points.length - 1 - i];  // en orden cronológico
+    const tx = points[points.length - 1 - i];
     const circle = L.circleMarker([lat, lon], {
-      radius: 4,
-      fillColor: '#94a3b8',
-      color: '#fff',
-      weight: 1,
-      fillOpacity: 0.8,
+      radius: 4, fillColor: '#94a3b8', color: '#fff', weight: 1, fillOpacity: 0.8,
     }).bindPopup(
       `Punto ${i + 1}<br>${lat.toFixed(5)}, ${lon.toFixed(5)}<br>` +
       (tx?.speed != null ? `${tx.speed} km/h ` : '') +
@@ -659,22 +594,17 @@ function _renderValMapa(points) {
     _valMapLayers.push(circle);
   });
 
-  // Marcador del punto más reciente — más grande y azul
   const lastLatLon = coords[coords.length - 1];
   const iconLatest = L.divIcon({
     className: '',
-    html: `<div style="
-      width:16px;height:16px;background:#63b3ed;border:2.5px solid #fff;
-      border-radius:50%;box-shadow:0 0 0 4px rgba(99,179,237,.4);
-      position:relative">
+    html: `<div style="width:16px;height:16px;background:#63b3ed;border:2.5px solid #fff;
+      border-radius:50%;box-shadow:0 0 0 4px rgba(99,179,237,.4);position:relative">
       <div style="position:absolute;top:-18px;left:50%;transform:translateX(-50%);
         background:#1e293b;color:#e2e8f0;font-size:10px;font-weight:600;
         padding:1px 5px;border-radius:3px;white-space:nowrap;border:1px solid rgba(255,255,255,.15)">
         ${_valUnit?.plate || ''}
-      </div>
-    </div>`,
-    iconSize: [16, 16],
-    iconAnchor: [8, 8],
+      </div></div>`,
+    iconSize: [16, 16], iconAnchor: [8, 8],
   });
 
   const latestTx = points[0];
@@ -688,30 +618,21 @@ function _renderValMapa(points) {
     ).openPopup();
   _valMapLayers.push(markerLatest);
 
-  // Ajustar zoom para mostrar toda la ruta
   _valMap.fitBounds(polyline.getBounds(), { padding: [30, 30], maxZoom: 15 });
-
   setTimeout(() => _valMap?.invalidateSize(), 50);
 }
 
 /* ── Tabs del validador ──────────────────────────────────────── */
 function switchValTab(name, clickedBtn) {
-  // Activar tab
   document.querySelectorAll('.val-tab').forEach(t => t.classList.remove('active'));
   if (clickedBtn) clickedBtn.classList.add('active');
-
-  // Mostrar panel
   ['destinos','historial','mapa','recibidos'].forEach(n => {
     document.getElementById(`val-panel-${n}`).style.display = n === name ? '' : 'none';
   });
-
-  // Si es mapa, invalidar tamaño Leaflet
-  if (name === 'mapa' && _valMap) {
-    setTimeout(() => _valMap.invalidateSize(), 50);
-  }
+  if (name === 'mapa' && _valMap) setTimeout(() => _valMap.invalidateSize(), 50);
 }
 
-/* ── Exportar JSON — todo lo visible en pantalla ─────────────── */
+/* ── Exportar JSON ───────────────────────────────────────────── */
 function exportValidador() {
   if (!_valUnit) return;
 
@@ -774,14 +695,13 @@ function exportValidador() {
   URL.revokeObjectURL(url);
 }
 
-/* ── Limpiar ────────────────────────────────────────────────── */
+/* ── Limpiar validador ───────────────────────────────────────── */
 function clearValidator() {
   document.getElementById('val-patente').value = '';
   document.getElementById('val-imei').value    = '';
   document.getElementById('result-panel').classList.remove('show');
-  _valUnit      = null;
-  _valGpsData   = null;
-  // Limpiar mapa
+  _valUnit    = null;
+  _valGpsData = null;
   if (_valMap) {
     _valMapLayers.forEach(l => _valMap.removeLayer(l));
     _valMapLayers = [];
@@ -802,8 +722,7 @@ async function renderAdminTable() {
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
         stroke-width="2" style="animation:spin 1s linear infinite;vertical-align:middle;margin-right:6px">
         <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
-      </svg>
-      Cargando unidades…
+      </svg>Cargando unidades…
     </td></tr>`;
 
   try {
@@ -856,28 +775,28 @@ function _paintAdminTable(units) {
       : `<span class="badge red">Inactivo</span>`;
 
     const tr = document.createElement('tr');
-   tr.innerHTML = `
-     <td><input type="checkbox" class="row-chk" data-imei="${u.imei}" onchange="updateDeleteBtn()" /></td>
-  <td><span class="mono" style="font-weight:600;letter-spacing:.5px">${u.plate || '—'}</span></td>
-  <td><span class="mono" style="font-size:12px;color:var(--text2)">${u.imei}</span></td>
-  <td>${u.name || '<span style="color:var(--text3)">—</span>'}</td>
-  <td><span style="font-size:12px;color:var(--text2)">${u.rut || '<span style="color:var(--text3)">—</span>'}</span></td>
-  <td style="max-width:220px">${destBadges}</td>
-  <td>${statusBadge}</td>
-  <td>
-    <div style="display:flex;gap:6px;align-items:center">
-      <button class="btn sm ${u.enabled ? 'danger' : 'success'}" title="${u.enabled ? 'Desactivar' : 'Activar'}"
-        onclick="toggleUnit('${u.imei}', this)">
-        ${u.enabled ? 'Desactivar' : 'Activar'}
-      </button>
-      <button class="btn sm" title="Editar" onclick="editAdminUnit('${u.imei}')">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-        </svg>
-      </button>
-    </div>
-  </td>`;
+    tr.innerHTML = `
+      <td><input type="checkbox" class="row-chk" data-imei="${u.imei}" onchange="updateDeleteBtn()" /></td>
+      <td><span class="mono" style="font-weight:600;letter-spacing:.5px">${u.plate || '—'}</span></td>
+      <td><span class="mono" style="font-size:12px;color:var(--text2)">${u.imei}</span></td>
+      <td>${u.name || '<span style="color:var(--text3)">—</span>'}</td>
+      <td><span style="font-size:12px;color:var(--text2)">${u.rut || '<span style="color:var(--text3)">—</span>'}</span></td>
+      <td style="max-width:220px">${destBadges}</td>
+      <td>${statusBadge}</td>
+      <td>
+        <div style="display:flex;gap:6px;align-items:center">
+          <button class="btn sm ${u.enabled ? 'danger' : 'success'}" title="${u.enabled ? 'Desactivar' : 'Activar'}"
+            onclick="toggleUnit('${u.imei}', this)">
+            ${u.enabled ? 'Desactivar' : 'Activar'}
+          </button>
+          <button class="btn sm" title="Editar" onclick="editAdminUnit('${u.imei}')">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            </svg>
+          </button>
+        </div>
+      </td>`;
     tbody.appendChild(tr);
   });
 }
@@ -947,43 +866,35 @@ async function editAdminUnit(imei) {
     try { unit = await api.get(`/units/${imei}`); } catch (_) { return; }
   }
 
-  // Siempre recargar ORGS frescos antes de abrir el modal
   await loadOrgsFromAPI();
 
-  // Título y campos base
   document.getElementById('modal-title').textContent      = `Editar — ${unit.plate || unit.imei}`;
   document.getElementById('modal-patente').value          = unit.plate || '';
   document.getElementById('modal-imei').value             = unit.imei;
   document.getElementById('modal-imei').readOnly          = false;
   document.getElementById('modal-imei').style.opacity     = '0.6';
-  if (document.getElementById('modal-cliente'))    document.getElementById('modal-cliente').value    = unit.name       || '';
-  if (document.getElementById('modal-rut'))        document.getElementById('modal-rut').value        = unit.rut        || '';
+  if (document.getElementById('modal-cliente')) document.getElementById('modal-cliente').value = unit.name || '';
+  if (document.getElementById('modal-rut'))     document.getElementById('modal-rut').value     = unit.rut  || '';
 
-  // Botón guardar → modo edición
   const saveBtn       = document.getElementById('modal-save-btn');
   saveBtn.textContent = 'Guardar cambios';
   saveBtn.onclick     = saveEditEntry;
 
-  // Ir directo al paso 2 (formulario con destinos)
   document.getElementById('modal-step-dest').style.display = 'none';
   document.getElementById('modal-step-form').style.display = '';
   document.getElementById('msi-1').className = 'modal-step-indicator done';
   document.getElementById('msi-2').className = 'modal-step-indicator active';
 
-  // Badge modo edición
   document.getElementById('modal-dest-badge').innerHTML = `
     <span style="width:9px;height:9px;border-radius:99px;background:var(--sky);flex-shrink:0"></span>
     <span style="font-size:12px;color:var(--text2)">Modo edición</span>
     <strong style="font-size:13px">${unit.plate || unit.imei}</strong>`;
 
-  // Ocultar campos dinámicos del destino
   document.getElementById('modal-dest-fields-wrap').style.display = 'none';
 
-  // Quitar sección anterior si existe
   const prev = document.getElementById('edit-dest-section');
   if (prev) prev.remove();
 
-  // Construir lista de destinos actuales + selector para agregar
   const assignedIds = new Set((unit.destinations || []).map(d => String(d.destination_id)));
   const available   = Object.entries(ORGS).filter(([id]) => !assignedIds.has(String(id)));
 
@@ -1012,7 +923,6 @@ async function editAdminUnit(imei) {
         </div>`).join('')
     : `<div style="font-size:13px;color:var(--text3);padding:8px 0">Sin destinos asignados aún.</div>`;
 
-  // Selector inline para agregar destino
   const addSection = available.length ? `
     <div style="display:flex;gap:8px;margin-top:4px" id="add-dest-inline-wrap">
       <select class="input" id="add-dest-select" style="flex:1">
@@ -1042,24 +952,17 @@ async function saveEditEntry() {
   const cliente = document.getElementById('modal-cliente')?.value.trim() || null;
   const rut     = document.getElementById('modal-rut')?.value.trim()     || null;
   const btn     = document.getElementById('modal-save-btn');
- 
-  if (!newImei) {
-    showToast('Error', 'El IMEI es requerido.');
-    return;
-  }
- 
+
+  if (!newImei) { showToast('Error', 'El IMEI es requerido.'); return; }
+
   btn.disabled    = true;
   btn.textContent = 'Guardando…';
- 
+
   try {
-    // Si el IMEI cambió, primero migrar el IMEI en todas las tablas
     if (newImei !== oldImei) {
       await api.patch(`/units/${oldImei}/change-imei`, { new_imei: newImei });
     }
- 
-    // Actualizar los demás campos con el IMEI actual (nuevo o viejo)
     await api.patch(`/units/${newImei}`, { plate: plate || null, name: cliente, rut });
- 
     showToast('Guardado', `Unidad ${newImei} actualizada.`);
     closeModal();
     _adminUnits = await api.get('/units');
@@ -1076,13 +979,11 @@ async function toggleUnitDest(imei, destId, enabled) {
   try {
     await api.patch(`/units/${imei}/destinations/${destId}`, { enabled });
     showToast(enabled ? 'Destino habilitado' : 'Destino deshabilitado', '');
-    // Actualizar dot de color en la fila
     const row = document.getElementById(`dest-row-${destId}`);
     if (row) {
       const dot = row.querySelector('span[style*="border-radius:99px"]');
       if (dot) dot.style.background = enabled ? 'var(--green)' : 'var(--text3)';
     }
-    // Actualizar caché
     const unit = _adminUnits.find(u => u.imei === imei);
     if (unit) {
       const d = unit.destinations.find(d => d.destination_id === destId);
@@ -1098,7 +999,6 @@ async function removeUnitDest(imei, destId, btn) {
     showToast('Destino eliminado', '');
     const row = document.getElementById(`dest-row-${destId}`);
     if (row) row.remove();
-    // Actualizar caché
     const unit = _adminUnits.find(u => u.imei === imei);
     if (unit) unit.destinations = unit.destinations.filter(d => d.destination_id !== destId);
   } catch (_) {
@@ -1114,20 +1014,11 @@ async function saveEntry() {
   const plate = document.getElementById('modal-patente')?.value.trim().toUpperCase();
   const btn   = document.getElementById('modal-save-btn');
 
-  if (!imei) {
-    showToast('Error', 'El IMEI es requerido.');
-    return;
-  }
-  if (!_modalSelectedDestId) {
-    showToast('Error', 'Selecciona un destino primero.');
-    return;
-  }
+  if (!imei)  { showToast('Error', 'El IMEI es requerido.'); return; }
+  if (!_modalSelectedDestId) { showToast('Error', 'Selecciona un destino primero.'); return; }
 
-  // Validar campos requeridos del schema
   const org    = ORGS[_modalSelectedDestId];
-  const fields = (org?.fields || []).filter(f =>
-    f.apiKey && !['patente','imei'].includes(f.apiKey.toLowerCase())
-  );
+  const fields = (org?.fields || []).filter(f => f.apiKey && !['patente','imei'].includes(f.apiKey.toLowerCase()));
   for (const f of fields) {
     if (f.required) {
       const el = document.getElementById('mf-' + f.id);
@@ -1143,30 +1034,24 @@ async function saveEntry() {
   btn.textContent = 'Guardando…';
 
   try {
-    // 1. Verificar si la unidad ya existe
     let unitExists = false;
     try {
       const res = await fetch(`${CONFIG.API_URL}/units/${imei}`, {
         headers: { 'Authorization': `Bearer ${getToken()}` }
       });
       unitExists = res.ok;
-    } catch (_) {
-      unitExists = false;
-    }
+    } catch (_) { unitExists = false; }
 
-    const cliente    = document.getElementById('modal-cliente')?.value.trim()    || null;
-    const rut        = document.getElementById('modal-rut')?.value.trim()        || null;
-    // 2. Crear unidad si no existe, o actualizar si ya existe
+    const cliente = document.getElementById('modal-cliente')?.value.trim() || null;
+    const rut     = document.getElementById('modal-rut')?.value.trim()     || null;
+
     if (!unitExists) {
       await api.post('/units', { imei, plate: plate || null, name: cliente, rut });
     } else {
       await api.patch(`/units/${imei}`, { plate: plate || null, name: cliente, rut });
     }
 
-    // 3. Asignar destino
-    await api.post(`/units/${imei}/destinations`, {
-      destination_id: _modalSelectedDestId,
-    });
+    await api.post(`/units/${imei}/destinations`, { destination_id: _modalSelectedDestId });
 
     showToast('Guardado', `Unidad ${imei} registrada en ${org.name}.`);
     closeModal();
@@ -1176,15 +1061,14 @@ async function saveEntry() {
     if (e.message?.includes('ya tiene ese destino')) {
       showToast('Aviso', `Esta unidad ya está asignada a ${org?.name}.`);
     }
-    // otros errores ya los muestra api.js
   } finally {
     btn.disabled    = false;
     btn.textContent = 'Guardar entrada';
   }
 }
 
-/* ── Excel / CSV file input ───────────────────────────────────── */
-let _importData = []; // filas parseadas listas para importar
+/* ── Excel / CSV ─────────────────────────────────────────────── */
+let _importData = [];
 
 document.getElementById('excel-file').addEventListener('change', e => {
   const hasFile = !!e.target.files?.[0];
@@ -1194,7 +1078,6 @@ document.getElementById('excel-file').addEventListener('change', e => {
   document.getElementById('excel-preview').value = '';
 });
 
-/* ── Parsear archivo → array de objetos ──────────────────────── */
 async function _parseImportFile() {
   const file = document.getElementById('excel-file').files?.[0];
   if (!file) return [];
@@ -1209,24 +1092,18 @@ async function _parseImportFile() {
         const wb   = isCsv
           ? XLSX.read(e.target.result, { type: 'string' })
           : XLSX.read(e.target.result, { type: 'binary' });
-
         const ws   = wb.Sheets[wb.SheetNames[0]];
-        // Leer con raw:false para que SheetJS formatee los números como texto
-        // Esto evita que IMEIs de 15 dígitos se conviertan a notación científica
         const rows = XLSX.utils.sheet_to_json(ws, { defval: '', raw: false });
 
         const normalized = rows.map(row => {
           const r = {};
           Object.keys(row).forEach(k => {
             let v = row[k];
-            // Si el valor parece notación científica (ej: 3.59E+16 o 3,59E+14), convertir a entero exacto
-            // Excel español usa coma decimal → normalizar a punto antes de parsear
             if (typeof v === 'string' && /^[\d]+[,.]?\d*[eE][+\-]?\d+$/.test(v.trim())) {
               try { v = BigInt(Math.round(parseFloat(v.replace(',', '.')))).toString(); } catch (_) {}
             }
             r[k.toLowerCase().trim()] = String(v ?? '').trim();
           });
-          // Leer todas las columnas "Integración N" como array de destinos
           const destinos = [];
           if (r['destino'])      destinos.push(r['destino']);
           if (r['organización']) destinos.push(r['organización']);
@@ -1249,9 +1126,7 @@ async function _parseImportFile() {
         }).filter(r => r.imei);
 
         resolve(normalized);
-      } catch (err) {
-        reject(err);
-      }
+      } catch (err) { reject(err); }
     };
 
     reader.onerror = reject;
@@ -1259,7 +1134,6 @@ async function _parseImportFile() {
   });
 }
 
-/* ── Vista previa ─────────────────────────────────────────────── */
 async function previewImport() {
   const btn = document.getElementById('btn-preview');
   btn.disabled    = true;
@@ -1267,9 +1141,8 @@ async function previewImport() {
 
   try {
     if (!window.XLSX) {
-      // Cargar SheetJS dinámicamente si no está disponible
       await new Promise((res, rej) => {
-        const s  = document.createElement('script');
+        const s = document.createElement('script');
         s.src    = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
         s.onload = res; s.onerror = rej;
         document.head.appendChild(s);
@@ -1279,7 +1152,7 @@ async function previewImport() {
     _importData = await _parseImportFile();
 
     if (!_importData.length) {
-      showToast('Aviso', 'No se encontraron filas válidas. Verifica que el archivo tenga columnas: IMEI, Patente, Cliente.');
+      showToast('Aviso', 'No se encontraron filas válidas.');
       document.getElementById('excel-preview').value = '';
       return;
     }
@@ -1289,7 +1162,7 @@ async function previewImport() {
     showToast('Vista previa', `${_importData.length} filas encontradas.`);
 
   } catch (err) {
-    showToast('Error', 'No se pudo leer el archivo. Verifica que sea .xlsx o .csv válido.');
+    showToast('Error', 'No se pudo leer el archivo.');
     console.error(err);
   } finally {
     btn.disabled    = false;
@@ -1297,20 +1170,14 @@ async function previewImport() {
   }
 }
 
-/* ── Importar ─────────────────────────────────────────────────── */
 async function importExcel() {
-  if (!_importData.length) {
-    showToast('Error', 'Primero genera la vista previa.');
-    return;
-  }
+  if (!_importData.length) { showToast('Error', 'Primero genera la vista previa.'); return; }
 
   const btn = document.getElementById('btn-import');
   btn.disabled    = true;
   btn.textContent = 'Importando…';
 
   try {
-    // ── PASO 1: Upsert masivo de unidades en una sola llamada ──
-    // Si falla (ej: CORS), continuar igual — las unidades pueden ya existir
     btn.textContent = `Enviando ${_importData.length} unidades…`;
     try {
       await api.post('/units/batch', {
@@ -1322,46 +1189,31 @@ async function importExcel() {
         }))
       });
     } catch (batchErr) {
-      console.warn('[import] /units/batch falló, continuando con destinos:', batchErr.message);
+      console.warn('[import] /units/batch falló:', batchErr.message);
     }
 
-    // ── PASO 2: Mapear destinos reales de la BD por nombre ──
     const unitsWithDests = _importData.filter(u => u.destinos?.length);
 
     if (unitsWithDests.length) {
       btn.textContent = 'Preparando organizaciones…';
-
-      // Cargar destinos reales desde la API (no usar ORGS que son plantillas)
       const destListReal = await api.get('/destinations').catch(() => []);
       const orgByName = {};
-      (destListReal || []).forEach(d => {
-        orgByName[d.name.toLowerCase().trim()] = String(d.id);
-      });
+      (destListReal || []).forEach(d => { orgByName[d.name.toLowerCase().trim()] = String(d.id); });
 
-      // Recolectar todos los nombres de destinos únicos del archivo
-      const allDestNames = [...new Set(
-        unitsWithDests.flatMap(u => u.destinos).map(d => d.trim()).filter(Boolean)
-      )];
+      const allDestNames = [...new Set(unitsWithDests.flatMap(u => u.destinos).map(d => d.trim()).filter(Boolean))];
 
-      // Crear secuencialmente los que no existen en la BD (evita duplicados por paralelismo)
       for (const destNombre of allDestNames) {
         const key = destNombre.toLowerCase().trim();
-        if (orgByName[key]) continue; // ya existe en la BD, saltar
-
+        if (orgByName[key]) continue;
         try {
           const newId   = 'org-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
           const newDest = await api.post('/destinations', {
-            id:           newId,
-            name:         destNombre,
-            api_url:      null,
-            color:        '#38bdf8',
-            field_schema: [],
+            id: newId, name: destNombre, api_url: null, color: '#38bdf8', field_schema: [],
           });
           orgByName[key] = String(newDest.id || newId);
         } catch (_) {}
       }
 
-      // ── PASO 3: Asignar destinos en paralelo (orgs ya existen todas) ──
       const BATCH = 20;
       for (let i = 0; i < unitsWithDests.length; i += BATCH) {
         btn.textContent = `Asignando destinos ${i}/${unitsWithDests.length}…`;
@@ -1371,18 +1223,13 @@ async function importExcel() {
             const destId = orgByName[destNombre.toLowerCase().trim()];
             if (!destId) continue;
             try {
-              // fetch directo para no mostrar toast en 409 (ya asignado = ok)
               const _r = await fetch(CONFIG.API_URL + `/units/${unit.imei}/destinations`, {
                 method:  'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
                 body:    JSON.stringify({ destination_id: destId }),
               });
-              if (!_r.ok && _r.status !== 409) {
-                console.warn(`[import] ${unit.imei} → ${destId}: http ${_r.status}`);
-              }
-            } catch (e) {
-              console.warn('[import] error asignando destino:', e.message);
-            }
+              if (!_r.ok && _r.status !== 409) console.warn(`[import] ${unit.imei} → ${destId}: http ${_r.status}`);
+            } catch (e) { console.warn('[import] error asignando destino:', e.message); }
           }
         }));
       }
@@ -1391,7 +1238,7 @@ async function importExcel() {
     showToast('Importación completa', `✓ ${_importData.length} unidades procesadas`);
 
   } catch (e) {
-    showToast('Error', 'Falló la importación. Verifica la conexión.');
+    showToast('Error', 'Falló la importación.');
     console.error(e);
   } finally {
     _importData = [];
@@ -1408,7 +1255,6 @@ async function importExcel() {
 async function confirmAddDest(imei) {
   const destId = document.getElementById('add-dest-select')?.value;
   if (!destId) { showToast('Error', 'Selecciona un destino.'); return; }
-
   try {
     await api.post(`/units/${imei}/destinations`, { destination_id: destId });
     showToast('Destino agregado', 'Destino asignado correctamente.');
@@ -1418,12 +1264,13 @@ async function confirmAddDest(imei) {
     editAdminUnit(imei);
   } catch (_) {}
 }
-/* ── CSS spinner (para loading states) ───────────────────────── */
+
+/* ── CSS spinner ─────────────────────────────────────────────── */
 const spinStyle = document.createElement('style');
 spinStyle.textContent = `@keyframes spin { to { transform: rotate(360deg); } }`;
 document.head.appendChild(spinStyle);
 
-/* ── Init: restaurar sesión al cargar ────────────────────────── */
+/* ── Init ────────────────────────────────────────────────────── */
 restoreSession();
 
 async function deleteUnit(imei) {
@@ -1439,27 +1286,18 @@ async function deleteUnit(imei) {
 async function exportExcel() {
   try {
     const units = await api.get('/units');
-
-    if (!units.length) {
-      showToast('Exportar', 'No hay datos para exportar.');
-      return;
-    }
+    if (!units.length) { showToast('Exportar', 'No hay datos para exportar.'); return; }
 
     const BOM     = '\uFEFF';
     const headers = ['IMEI', 'Patente', 'Cliente', 'RUT', 'Destino'];
-
-    const rows = units.map(u => [
-      u.imei  || '',
-      u.plate || '',
-      u.name  || '',
-      u.rut   || '',
+    const rows    = units.map(u => [
+      u.imei || '', u.plate || '', u.name || '', u.rut || '',
       (u.destinations || []).map(d => d.name).join(' | '),
     ]);
 
     const csv = BOM + [headers, ...rows]
       .map((row, ri) => row.map((cell, ci) => {
         const val = String(cell).replace(/"/g, '""');
-        // IMEI (col 0) y RUT (col 3): prefijo \t fuerza texto en Excel
         if (ri > 0 && (ci === 0 || ci === 3) && val) return '"\t' + val + '"';
         return '"' + val + '"';
       }).join(';'))
@@ -1472,13 +1310,12 @@ async function exportExcel() {
     a.download = `unidades_${new Date().toISOString().slice(0,10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-
     showToast('Exportar', `${units.length} unidades exportadas.`);
-
   } catch (_) {
-    showToast('Error', 'No se pudo exportar. Verifica la conexión.');
+    showToast('Error', 'No se pudo exportar.');
   }
 }
+
 async function toggleUnit(imei, btn) {
   btn.disabled = true;
   try {
@@ -1486,7 +1323,6 @@ async function toggleUnit(imei, btn) {
     const unit = _adminUnits.find(u => u.imei === imei);
     if (unit) unit.enabled = updated.enabled;
 
-    // Badge está en td anterior al td de acciones
     const tr    = btn.closest('tr');
     const tds   = tr.querySelectorAll('td');
     const badge = tds[6].querySelector('.badge');
@@ -1507,9 +1343,7 @@ async function toggleSelected() {
   const checked = [...document.querySelectorAll('.row-chk:checked')];
   if (!checked.length) return;
 
-  const imeis = checked.map(el => el.dataset.imei);
-
-  // Si la mayoría están activas → desactivar todo, si no → activar todo
+  const imeis       = checked.map(el => el.dataset.imei);
   const activeCount = imeis.filter(imei => _adminUnits.find(u => u.imei === imei)?.enabled).length;
   const activate    = activeCount <= imeis.length / 2;
   const action      = activate ? 'Activar' : 'Desactivar';
@@ -1524,10 +1358,7 @@ async function toggleSelected() {
   await Promise.allSettled(imeis.map(async imei => {
     try {
       const unit = _adminUnits.find(u => u.imei === imei);
-      // Solo llamar toggle si el estado actual es diferente al deseado
-      if (!unit || unit.enabled === activate) {
-        ok++; return; // ya tiene el estado correcto
-      }
+      if (!unit || unit.enabled === activate) { ok++; return; }
       const updated = await api.patch('/units/' + imei + '/toggle', {});
       if (unit) unit.enabled = updated.enabled;
       ok++;
@@ -1566,14 +1397,10 @@ async function deleteSelected() {
     renderAdminTable();
   }
 }
+
 /* ══════════════════════════════════════════════════════════════
    DASHBOARD
 ══════════════════════════════════════════════════════════════ */
-/* ══════════════════════════════════════════════════════════
-   HISTORIAL DE CAMBIOS
-══════════════════════════════════════════════════════════ */
-
-// Etiquetas legibles para las acciones
 const _AUDIT_LABELS = {
   UNIT_CREATE:       { icon: '➕', label: 'Unidad creada',       color: 'var(--green)' },
   UNIT_UPDATE:       { icon: '✏️',  label: 'Unidad editada',      color: 'var(--sky)'   },
@@ -1599,7 +1426,6 @@ function _auditDiff(before, after) {
   if (!before && !after) return '';
   if (!before) return '<span style="color:var(--green);font-size:11px">Nuevo registro</span>';
   if (!after)  return '<span style="color:var(--red);font-size:11px">Eliminado</span>';
-  // Mostrar campos que cambiaron
   const changes = [];
   const allKeys = new Set([...Object.keys(before||{}), ...Object.keys(after||{})]);
   allKeys.forEach(k => {
@@ -1622,7 +1448,6 @@ let _auditTotal = 0;
 const _AUDIT_LIMIT = 50;
 
 async function openHistorial() {
-  // Crear modal si no existe
   let modal = document.getElementById('historial-modal');
   if (!modal) {
     modal = document.createElement('div');
@@ -1633,7 +1458,6 @@ async function openHistorial() {
     modal.onclick = e => { if (e.target === modal) modal.style.display = 'none'; };
     document.body.appendChild(modal);
   }
-
   modal.style.display = 'flex';
   _auditPage = 0;
   _renderHistorialModal(modal);
@@ -1645,7 +1469,6 @@ function closeHistorial() {
 }
 
 async function _renderHistorialModal(modal) {
-  // Skeleton
   modal.innerHTML = `
     <div style="background:var(--bg1);border:1px solid var(--border);border-radius:12px;
       width:min(900px,96vw);max-height:88vh;display:flex;flex-direction:column;
@@ -1663,8 +1486,6 @@ async function _renderHistorialModal(modal) {
           border:1px solid var(--border);background:transparent;cursor:pointer;
           color:var(--text2);font-size:18px;display:flex;align-items:center;justify-content:center">✕</button>
       </div>
-
-      <!-- Filtros -->
       <div style="padding:12px 20px;border-bottom:1px solid var(--border);
         display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <input id="hist-search" class="input" placeholder="Buscar acción, usuario, objeto…"
@@ -1683,8 +1504,6 @@ async function _renderHistorialModal(modal) {
         </select>
         <button onclick="_auditLimpiar()" class="btn sm" style="height:34px">Limpiar</button>
       </div>
-
-      <!-- Tabla -->
       <div style="overflow-y:auto;flex:1" id="hist-body">
         <div style="text-align:center;padding:40px;color:var(--text3)">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -1693,8 +1512,6 @@ async function _renderHistorialModal(modal) {
           </svg>Cargando historial…
         </div>
       </div>
-
-      <!-- Footer -->
       <div style="padding:12px 20px;border-top:1px solid var(--border);
         display:flex;align-items:center;justify-content:space-between;gap:8px">
         <span id="hist-count" style="font-size:12px;color:var(--text3)"></span>
@@ -1705,25 +1522,20 @@ async function _renderHistorialModal(modal) {
         </div>
       </div>
     </div>`;
-
   await _cargarAudit();
 }
 
-let _auditLastSearch = '';
 let _auditDebounce = null;
 
 function _auditBuscar() {
   clearTimeout(_auditDebounce);
-  _auditDebounce = setTimeout(async () => {
-    _auditPage = 0;
-    await _cargarAudit();
-  }, 300);
+  _auditDebounce = setTimeout(async () => { _auditPage = 0; await _cargarAudit(); }, 300);
 }
 
 function _auditLimpiar() {
-  document.getElementById('hist-search').value  = '';
-  document.getElementById('hist-action').value  = '';
-  document.getElementById('hist-user').value    = '';
+  document.getElementById('hist-search').value = '';
+  document.getElementById('hist-action').value = '';
+  document.getElementById('hist-user').value   = '';
   _auditPage = 0;
   _cargarAudit();
 }
@@ -1739,10 +1551,7 @@ async function _cargarAudit() {
   const action = document.getElementById('hist-action')?.value || '';
   const user   = document.getElementById('hist-user')?.value   || '';
 
-  const params = new URLSearchParams({
-    limit:  _AUDIT_LIMIT,
-    offset: _auditPage * _AUDIT_LIMIT,
-  });
+  const params = new URLSearchParams({ limit: _AUDIT_LIMIT, offset: _auditPage * _AUDIT_LIMIT });
   if (search) params.set('search', search);
   if (action) params.set('action', action);
   if (user)   params.set('username', user);
@@ -1751,23 +1560,19 @@ async function _cargarAudit() {
     const data = await api.get('/admin/audit?' + params.toString());
     _auditTotal = data.total || 0;
 
-    // Actualizar subtítulo
     const sub = document.getElementById('hist-subtitle');
     if (sub) sub.textContent = `${_auditTotal} evento${_auditTotal !== 1 ? 's' : ''} registrado${_auditTotal !== 1 ? 's' : ''}`;
 
-    // Actualizar contador
-    const cnt = document.getElementById('hist-count');
+    const cnt  = document.getElementById('hist-count');
     const from = _auditPage * _AUDIT_LIMIT + 1;
     const to   = Math.min(from + _AUDIT_LIMIT - 1, _auditTotal);
     if (cnt) cnt.textContent = _auditTotal ? `Mostrando ${from}–${to} de ${_auditTotal}` : 'Sin resultados';
 
-    // Paginación
     const prev = document.getElementById('hist-prev');
     const next = document.getElementById('hist-next');
     if (prev) prev.disabled = _auditPage === 0;
     if (next) next.disabled = to >= _auditTotal;
 
-    // Poblar selector de usuarios únicos (solo primera carga)
     if (_auditPage === 0 && !search && !action && !user) {
       const sel = document.getElementById('hist-user');
       if (sel && sel.options.length === 1) {
@@ -1782,8 +1587,7 @@ async function _cargarAudit() {
 
     if (!data.rows.length) {
       body.innerHTML = `<div style="text-align:center;padding:40px;color:var(--text3)">
-        <div style="font-size:32px;margin-bottom:8px">📭</div>
-        Sin eventos registrados para este filtro</div>`;
+        <div style="font-size:32px;margin-bottom:8px">📭</div>Sin eventos registrados para este filtro</div>`;
       return;
     }
 
@@ -1812,21 +1616,17 @@ async function _cargarAudit() {
                 ${r.role ? `<div style="color:var(--text3);font-size:11px">${r.role}</div>` : ''}
               </td>
               <td style="padding:8px 12px">${_auditLabel(r.action)}</td>
-              <td style="padding:8px 12px;font-family:monospace;font-size:12px;color:var(--text2)">
-                ${r.target || '—'}
-              </td>
-              <td style="padding:8px 12px;max-width:300px">
-                ${_auditDiff(r.before_data, r.after_data)}
-              </td>
+              <td style="padding:8px 12px;font-family:monospace;font-size:12px;color:var(--text2)">${r.target || '—'}</td>
+              <td style="padding:8px 12px;max-width:300px">${_auditDiff(r.before_data, r.after_data)}</td>
             </tr>`).join('')}
         </tbody>
       </table>`;
   } catch (e) {
-    if (body) body.innerHTML = `<div style="color:var(--red);padding:20px">
-      Error al cargar historial: ${e.message}</div>`;
+    if (body) body.innerHTML = `<div style="color:var(--red);padding:20px">Error al cargar historial: ${e.message}</div>`;
   }
 }
 
+/* ── Modal unidades sin destino ──────────────────────────────── */
 function _abrirModalSinDestino(units) {
   let modal = document.getElementById('modal-sin-destino');
   if (!modal) {
@@ -1838,6 +1638,7 @@ function _abrirModalSinDestino(units) {
     document.body.appendChild(modal);
   }
   modal.onclick = e => { if (e.target === modal) modal.style.display = 'none'; };
+
   const rows = units.map(u => `
     <tr style="border-bottom:1px solid var(--border)">
       <td style="padding:8px 12px;font-weight:600;font-family:monospace">${u.plate||'—'}</td>
@@ -1847,6 +1648,7 @@ function _abrirModalSinDestino(units) {
         <button onclick="_irAPatenteBuscar('${u.plate||u.imei}')" class="btn sm primary">Ver en patentes</button>
       </td>
     </tr>`).join('');
+
   modal.innerHTML = `
     <div style="background:var(--bg1);border:1px solid var(--border);border-radius:12px;
       width:min(700px,92vw);max-height:80vh;display:flex;flex-direction:column;
@@ -1891,19 +1693,12 @@ function _abrirModalSinDestino(units) {
 }
 
 function _irAPatenteBuscar(plate) {
-  // Cerrar el modal si existe (puede no estar en el DOM si ya se cerró)
   const modal = document.getElementById('modal-sin-destino');
   if (modal) modal.style.display = 'none';
-  // Cerrar también cualquier overlay genérico
-  document.querySelectorAll('.modal-overlay').forEach(m => m.style.display = 'none');
   navigate('patentes');
   setTimeout(() => {
     const inp = document.getElementById('admin-search');
-    if (inp) {
-      inp.value = plate;
-      inp.dispatchEvent(new Event('input'));  // disparar filtro
-      filterAdminTable();
-    }
+    if (inp) { inp.value = plate; inp.dispatchEvent(new Event('input')); filterAdminTable(); }
   }, 400);
 }
 
@@ -1915,7 +1710,6 @@ function _irAPatentesConFiltro() {
 }
 
 async function loadDashboard() {
-  // Resetear KPIs a estado cargando
   ['kpi-units','kpi-active','kpi-queries','kpi-errors'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.textContent = '…';
@@ -1924,20 +1718,14 @@ async function loadDashboard() {
   try {
     const units = await api.get('/units');
 
-    // ── KPI: Unidades activas ──
-    const activeUnits = units.filter(u => u.enabled);
-    document.getElementById('kpi-units').textContent = activeUnits.length;
+    const activeUnits  = units.filter(u => u.enabled);
+    const totalDests   = units.reduce((sum, u) => sum + (u.destinations||[]).filter(d => d.enabled).length, 0);
+    const sinDestinos  = activeUnits.filter(u => !(u.destinations?.some(d => d.enabled)));
+    const adminCard    = document.getElementById('kpi-admin-card');
 
-    // ── KPI: Integraciones activas (destinos habilitados en total) ──
-    const totalDests = units.reduce((sum, u) => {
-      const dests = u.destinations || [];
-      return sum + dests.filter(d => d.enabled).length;
-    }, 0);
+    document.getElementById('kpi-units').textContent  = activeUnits.length;
     document.getElementById('kpi-active').textContent = totalDests;
 
-    // ── KPI: Sin destinos (solo admin) ──
-    const sinDestinos = activeUnits.filter(u => !(u.destinations?.some(d => d.enabled)));
-    const adminCard = document.getElementById('kpi-admin-card');
     if (state?.user?.role === 'admin') {
       if (adminCard) {
         adminCard.style.display = '';
@@ -1948,10 +1736,8 @@ async function loadDashboard() {
       document.getElementById('kpi-errors').textContent = sinDestinos.length;
     }
 
-    // ── KPI: Consultas hoy — no hay endpoint, mostramos unidades con destinos ──
     document.getElementById('kpi-queries').textContent = activeUnits.length - sinDestinos.length;
 
-    // ── Estado del sistema ──
     const integBadge = document.getElementById('status-integrations');
     if (integBadge) {
       integBadge.textContent = totalDests > 0 ? `${totalDests} activas` : 'Sin configurar';
@@ -1960,9 +1746,7 @@ async function loadDashboard() {
     const syncEl = document.getElementById('status-sync');
     if (syncEl) syncEl.textContent = new Date().toLocaleTimeString('es-CL');
 
-    // ── Actividad reciente ──
     _renderDashboardActivity(units);
-
   } catch (e) {
     console.error('[dashboard]', e);
     document.getElementById('kpi-units').textContent   = '!';
@@ -1975,35 +1759,19 @@ function _renderDashboardActivity(units) {
   const container = document.querySelector('#view-dashboard .activity-item')?.parentElement;
   if (!container) return;
 
-  const activeUnits   = units.filter(u => u.enabled);
-  const sinDest       = activeUnits.filter(u => !(u.destinations?.some(d => d.enabled)));
-  const conDest       = activeUnits.filter(u => u.destinations?.some(d => d.enabled));
-  const totalDests    = units.reduce((s, u) => s + (u.destinations?.filter(d => d.enabled).length || 0), 0);
+  const activeUnits = units.filter(u => u.enabled);
+  const sinDest     = activeUnits.filter(u => !(u.destinations?.some(d => d.enabled)));
+  const conDest     = activeUnits.filter(u => u.destinations?.some(d => d.enabled));
+  const totalDests  = units.reduce((s, u) => s + (u.destinations?.filter(d => d.enabled).length || 0), 0);
 
   const items = [];
+  if (activeUnits.length > 0) items.push({ color: 'var(--green)', text: `${activeUnits.length} unidad${activeUnits.length !== 1 ? 'es' : ''} activa${activeUnits.length !== 1 ? 's' : ''} registrada${activeUnits.length !== 1 ? 's' : ''}`, sub: 'En el sistema' });
+  if (totalDests > 0)         items.push({ color: 'var(--sky)',   text: `${totalDests} integración${totalDests !== 1 ? 'es' : ''} configurada${totalDests !== 1 ? 's' : ''}`, sub: 'Destinos activos' });
+  if (sinDest.length > 0)     items.push({ color: 'var(--amber)', text: `${sinDest.length} unidad${sinDest.length !== 1 ? 'es' : ''} sin destino asignado`, sub: 'Requieren configuración — clic para ver', onclick: () => _abrirModalSinDestino(sinDest) });
+  if (conDest.length > 0)     items.push({ color: 'var(--green)', text: `${conDest.length} unidad${conDest.length !== 1 ? 'es' : ''} con integración activa`, sub: 'Enviando a destinos' });
+  if (items.length === 0)     items.push({ color: 'var(--text3)', text: 'Sin unidades registradas aún', sub: 'Agrega unidades en Patentes / IMEI' });
 
-  if (activeUnits.length > 0) {
-    items.push({ color: 'var(--green)', text: `${activeUnits.length} unidad${activeUnits.length !== 1 ? 'es' : ''} activa${activeUnits.length !== 1 ? 's' : ''} registrada${activeUnits.length !== 1 ? 's' : ''}`, sub: 'En el sistema' });
-  }
-  if (totalDests > 0) {
-    items.push({ color: 'var(--sky)', text: `${totalDests} integración${totalDests !== 1 ? 'es' : ''} configurada${totalDests !== 1 ? 's' : ''}`, sub: 'Destinos activos' });
-  }
-  if (sinDest.length > 0) {
-    items.push({
-      color: 'var(--amber)',
-      text: `${sinDest.length} unidad${sinDest.length !== 1 ? 'es' : ''} sin destino asignado`,
-      sub: 'Requieren configuración — clic para ver',
-      onclick: () => _abrirModalSinDestino(sinDest)
-    });
-  }
-  if (conDest.length > 0) {
-    items.push({ color: 'var(--green)', text: `${conDest.length} unidad${conDest.length !== 1 ? 'es' : ''} con integración activa`, sub: 'Enviando a destinos' });
-  }
-  if (items.length === 0) {
-    items.push({ color: 'var(--text3)', text: 'Sin unidades registradas aún', sub: 'Agrega unidades en Patentes / IMEI' });
-  }
-
-    container.innerHTML = '';
+  container.innerHTML = '';
   items.forEach(item => {
     const div = document.createElement('div');
     div.className = 'activity-item';
@@ -2023,16 +1791,14 @@ function _renderDashboardActivity(units) {
 /* ══════════════════════════════════════════════════════════════
    MODAL PERFIL
 ══════════════════════════════════════════════════════════════ */
-
 function openPerfilModal() {
-  // Prellenar con nombre visible actual (no el username de login)
   const displayName = localStorage.getItem('sigeulo_display_name') || state.user?.username || '';
-  document.getElementById('perfil-username').value        = displayName;
-  document.getElementById('perfil-current-pass').value    = '';
-  document.getElementById('perfil-new-pass').value        = '';
-  document.getElementById('perfil-error').style.display   = 'none';
-  document.getElementById('perfil-save-btn').disabled     = false;
-  document.getElementById('perfil-save-btn').textContent  = 'Guardar cambios';
+  document.getElementById('perfil-username').value       = displayName;
+  document.getElementById('perfil-current-pass').value  = '';
+  document.getElementById('perfil-new-pass').value      = '';
+  document.getElementById('perfil-error').style.display = 'none';
+  document.getElementById('perfil-save-btn').disabled   = false;
+  document.getElementById('perfil-save-btn').textContent = 'Guardar cambios';
   _renderPerfilAvatar();
   document.getElementById('perfil-modal').classList.add('show');
 }
@@ -2041,7 +1807,6 @@ function closePerfilModal() {
   document.getElementById('perfil-modal').classList.remove('show');
 }
 
-// ── Logo storage via IndexedDB (soporta archivos grandes sin data URLs) ──
 const _logoDB = (() => {
   let _db;
   const open = () => new Promise((res, rej) => {
@@ -2079,8 +1844,7 @@ function _renderPerfilAvatar() {
       const url = URL.createObjectURL(blob);
       preview.innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:cover" onload="try{URL.revokeObjectURL(this.src)}catch(e){}">`;
     } else {
-      const name = state.user?.username || '?';
-      preview.textContent = name.charAt(0).toUpperCase();
+      preview.textContent = (state.user?.username || '?').charAt(0).toUpperCase();
     }
   });
 }
@@ -2088,10 +1852,7 @@ function _renderPerfilAvatar() {
 function handleLogoUpload(input) {
   const file = input.files[0];
   if (!file) return;
-  if (file.size > 1024 * 1024) {
-    showToast('Imagen muy grande', 'Usa una imagen menor a 1 MB.');
-    return;
-  }
+  if (file.size > 1024 * 1024) { showToast('Imagen muy grande', 'Usa una imagen menor a 1 MB.'); return; }
   _logoDB.set('logo', file).then(() => {
     _renderPerfilAvatar();
     _applySidebarLogo();
@@ -2121,49 +1882,26 @@ async function savePerfil() {
 
   errEl.style.display = 'none';
 
-  // Validar nombre visible
-  if (displayName.length < 2) {
-    errEl.textContent   = 'El nombre debe tener al menos 2 caracteres.';
-    errEl.style.display = '';
-    return;
-  }
-  if (newPass && !currentPass) {
-    errEl.textContent   = 'Ingresa tu contraseña actual para poder cambiarla.';
-    errEl.style.display = '';
-    return;
-  }
-  if (newPass && newPass.length < 6) {
-    errEl.textContent   = 'La nueva contraseña debe tener al menos 6 caracteres.';
-    errEl.style.display = '';
-    return;
-  }
+  if (displayName.length < 2) { errEl.textContent = 'El nombre debe tener al menos 2 caracteres.'; errEl.style.display = ''; return; }
+  if (newPass && !currentPass) { errEl.textContent = 'Ingresa tu contraseña actual para poder cambiarla.'; errEl.style.display = ''; return; }
+  if (newPass && newPass.length < 6) { errEl.textContent = 'La nueva contraseña debe tener al menos 6 caracteres.'; errEl.style.display = ''; return; }
 
   btn.disabled    = true;
   btn.textContent = 'Guardando…';
 
   try {
-    // ── Nombre para mostrar: solo localStorage, no toca credenciales ──
     localStorage.setItem('sigeulo_display_name', displayName);
     _applyDisplayName(displayName);
-
-    // ── Cambio de contraseña: llama al backend si se llenaron los campos ──
     if (newPass) {
       await api.patch('/auth/me', {
-        username:        state.user?.username,
-        currentPassword: currentPass,
-        newPassword:     newPass,
+        username: state.user?.username, currentPassword: currentPass, newPassword: newPass,
       });
     }
-
     closePerfilModal();
     showToast('Perfil actualizado', 'Cambios guardados correctamente.');
-
   } catch (e) {
     const msg = e.message;
-    if (msg && msg !== 'Forbidden' && msg !== 'Unauthorized') {
-      errEl.textContent   = msg;
-      errEl.style.display = '';
-    }
+    if (msg && msg !== 'Forbidden' && msg !== 'Unauthorized') { errEl.textContent = msg; errEl.style.display = ''; }
   } finally {
     btn.disabled    = false;
     btn.textContent = 'Guardar cambios';
@@ -2184,12 +1922,9 @@ function _applyDisplayName(name) {
   });
 }
 
-// Logo aplicado desde auth.js via _applySidebarLogo()
-
 /* ══════════════════════════════════════════════════════════════
    CONFIGURACIÓN GENERAL
-   ══════════════════════════════════════════════════════════════ */
-
+══════════════════════════════════════════════════════════════ */
 const _ACCENT_COLORS = [
   { name: 'Índigo',    val: '#6366f1', grad: '#6366f1,#818cf8' },
   { name: 'Azul',      val: '#3b82f6', grad: '#3b82f6,#60a5fa' },
@@ -2202,7 +1937,6 @@ const _ACCENT_COLORS = [
 ];
 
 function initGeneralTab() {
-  // Prellenar nombre/subtítulo
   const savedName     = localStorage.getItem('cfg_platform_name')     || 'Síguelo';
   const savedSubtitle = localStorage.getItem('cfg_platform_subtitle') || 'Integraciones';
   const savedExpiry   = localStorage.getItem('cfg_jwt_expiry')        || '8h';
@@ -2213,7 +1947,6 @@ function initGeneralTab() {
   document.getElementById('cfg-platform-subtitle').value = savedSubtitle;
   document.getElementById('cfg-jwt-expiry').value        = savedExpiry;
 
-  // Renderizar swatches de color
   const container = document.getElementById('accent-swatches');
   if (container) {
     container.innerHTML = _ACCENT_COLORS.map(c => `
@@ -2222,11 +1955,9 @@ function initGeneralTab() {
         cursor:pointer;border:3px solid ${savedAccent === c.val ? '#fff' : 'transparent'};
         transition:all .2s;box-shadow:${savedAccent === c.val ? '0 0 0 2px ' + c.val : 'none'}"
         id="swatch-${c.val.slice(1)}">
-      </button>
-    `).join('');
+      </button>`).join('');
   }
 
-  // Marcar densidad activa
   _applyDensityUI(savedDensity);
   _applyAccentColor(savedAccent);
 }
@@ -2234,24 +1965,17 @@ function initGeneralTab() {
 function setAccentColor(hex) {
   localStorage.setItem('cfg_accent_color', hex);
   _applyAccentColor(hex);
-  // Actualizar borde de swatches
   document.querySelectorAll('#accent-swatches button').forEach(btn => {
     const isActive = btn.title === _ACCENT_COLORS.find(c => c.val === hex)?.name;
-    btn.style.border = isActive ? '3px solid #fff' : '3px solid transparent';
+    btn.style.border    = isActive ? '3px solid #fff' : '3px solid transparent';
     btn.style.boxShadow = isActive ? `0 0 0 2px ${hex}` : 'none';
   });
-  showToast('Color actualizado', 'El color de acento se aplicó.', 'success');
+  showToast('Color actualizado', 'El color de acento se aplicó.');
 }
 
 function _applyAccentColor(hex) {
-  // Inyectar variable CSS --sky con el color elegido
   let style = document.getElementById('cfg-accent-style');
-  if (!style) {
-    style = document.createElement('style');
-    style.id = 'cfg-accent-style';
-    document.head.appendChild(style);
-  }
-  // Calcular versión más oscura para hover
+  if (!style) { style = document.createElement('style'); style.id = 'cfg-accent-style'; document.head.appendChild(style); }
   style.textContent = `:root { --sky: ${hex}; --indigo: ${hex}cc; }`;
 }
 
@@ -2259,26 +1983,22 @@ function setDensity(density) {
   localStorage.setItem('cfg_density', density);
   _applyDensityUI(density);
   _applyDensityCSS(density);
-  showToast('Densidad actualizada', 'La interfaz se ajustó.', 'success');
+  showToast('Densidad actualizada', 'La interfaz se ajustó.');
 }
 
 function _applyDensityUI(density) {
   document.querySelectorAll('.density-btn').forEach(btn => {
     const active = btn.dataset.density === density;
-    btn.style.background   = active ? 'rgba(99,102,241,.2)' : 'transparent';
-    btn.style.color        = active ? '#a5b4fc' : 'var(--text2)';
-    btn.style.borderColor  = active ? 'rgba(99,102,241,.4)' : 'var(--border)';
-    btn.style.fontWeight   = active ? '600' : '400';
+    btn.style.background  = active ? 'rgba(99,102,241,.2)' : 'transparent';
+    btn.style.color       = active ? '#a5b4fc' : 'var(--text2)';
+    btn.style.borderColor = active ? 'rgba(99,102,241,.4)' : 'var(--border)';
+    btn.style.fontWeight  = active ? '600' : '400';
   });
 }
 
 function _applyDensityCSS(density) {
   let style = document.getElementById('cfg-density-style');
-  if (!style) {
-    style = document.createElement('style');
-    style.id = 'cfg-density-style';
-    document.head.appendChild(style);
-  }
+  if (!style) { style = document.createElement('style'); style.id = 'cfg-density-style'; document.head.appendChild(style); }
   const map = {
     compact: `:root { --row-pad: 6px 12px; --card-pad: 12px; } .card-body { padding: 12px; } td, th { padding: 6px 12px !important; }`,
     normal:  `:root { --row-pad: 10px 16px; --card-pad: 16px; }`,
@@ -2290,7 +2010,7 @@ function _applyDensityCSS(density) {
 function savePlatformConfig() {
   const name     = document.getElementById('cfg-platform-name').value.trim()     || 'Síguelo';
   const subtitle = document.getElementById('cfg-platform-subtitle').value.trim() || 'Integraciones';
-  localStorage.setItem('cfg_platform_name',     name);
+  localStorage.setItem('cfg_platform_name', name);
   localStorage.setItem('cfg_platform_subtitle', subtitle);
   _applyPlatformName(name, subtitle);
   showToast('Guardado', 'Nombre de la plataforma actualizado.');
@@ -2301,19 +2021,17 @@ function _applyPlatformName(name, subtitle) {
     name     = localStorage.getItem('cfg_platform_name')     || 'Síguelo';
     subtitle = localStorage.getItem('cfg_platform_subtitle') || 'Integraciones';
   }
-  // Sidebar brand
   const brandName = document.querySelector('.sidebar-logo .logo-name');
   const brandSub  = document.querySelector('.sidebar-logo .logo-sub');
   if (brandName) brandName.textContent = name;
   if (brandSub)  brandSub.textContent  = subtitle;
-  // Título del navegador
   document.title = `${name} | ${subtitle}`;
 }
 
 function saveSessionConfig() {
   const expiry = document.getElementById('cfg-jwt-expiry').value;
   localStorage.setItem('cfg_jwt_expiry', expiry);
-  showToast('Guardado', `Expiración de sesión configurada a ${expiry}. Aplica en nuevos logins.`);
+  showToast('Guardado', `Expiración de sesión configurada a ${expiry}.`);
 }
 
 async function loadSystemInfo() {
@@ -2322,14 +2040,14 @@ async function loadSystemInfo() {
   if (!grid) return;
 
   grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:32px;color:var(--text3);font-size:13px">
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite;vertical-align:middle;margin-right:6px">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+      style="animation:spin 1s linear infinite;vertical-align:middle;margin-right:6px">
       <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
     </svg>Cargando...</div>`;
   if (btn) btn.disabled = true;
 
   try {
-    const info = await api.get('/admin/system-info');
-
+    const info   = await api.get('/admin/system-info');
     const uptime = _formatUptime(info.uptime || 0);
     const ts     = new Date(info.ts).toLocaleString('es-CL');
 
@@ -2351,11 +2069,9 @@ async function loadSystemInfo() {
       <div style="padding:16px 20px;border-bottom:1px solid var(--border)">
         <div style="font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Entorno</div>
         <div style="font-size:14px;font-weight:600;color:var(--text2)">${info.env || 'production'}</div>
-      </div>
-    `;
+      </div>`;
   } catch (e) {
-    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:32px;color:#fca5a5;font-size:13px">
-      No se pudo conectar con el servidor.</div>`;
+    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:32px;color:#fca5a5;font-size:13px">No se pudo conectar con el servidor.</div>`;
   } finally {
     if (btn) btn.disabled = false;
   }
@@ -2370,7 +2086,6 @@ function _formatUptime(seconds) {
   return `${Math.floor(h/24)}d ${h%24}h`;
 }
 
-// Aplicar configuración guardada al iniciar sesión
 function _applyAllSavedConfig() {
   const accent  = localStorage.getItem('cfg_accent_color');
   const density = localStorage.getItem('cfg_density');
@@ -2382,9 +2097,8 @@ function _applyAllSavedConfig() {
 }
 
 /* ══════════════════════════════════════════════════════════════
-   GESTIÓN DE USUARIOS (solo admin)
-   ══════════════════════════════════════════════════════════════ */
-
+   GESTIÓN DE USUARIOS
+══════════════════════════════════════════════════════════════ */
 let _usersCache = [];
 
 async function loadUsers() {
@@ -2394,31 +2108,23 @@ async function loadUsers() {
     const rows = await api.get('/auth/users');
     _usersCache = rows;
     _renderUsersTable(rows);
-  } catch (e) {
-    console.error('loadUsers:', e);
-  }
+  } catch (e) { console.error('loadUsers:', e); }
 }
 
 function _userRoleBadge(role) {
   return role === 'admin'
     ? `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;background:rgba(99,102,241,.18);color:#a5b4fc;border:1px solid rgba(99,102,241,.3)">
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-        Admin
-       </span>`
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>Admin</span>`
     : `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;background:rgba(20,184,166,.12);color:#5eead4;border:1px solid rgba(20,184,166,.25)">
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
-        Operador
-       </span>`;
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>Operador</span>`;
 }
 
 function _userStatusBadge(enabled) {
   return enabled
     ? `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;background:rgba(34,197,94,.12);color:#86efac;border:1px solid rgba(34,197,94,.25)">
-        <span style="width:6px;height:6px;border-radius:50%;background:#22c55e;display:inline-block"></span>Activo
-       </span>`
+        <span style="width:6px;height:6px;border-radius:50%;background:#22c55e;display:inline-block"></span>Activo</span>`
     : `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;background:rgba(239,68,68,.1);color:#fca5a5;border:1px solid rgba(239,68,68,.2)">
-        <span style="width:6px;height:6px;border-radius:50%;background:#ef4444;display:inline-block"></span>Inactivo
-       </span>`;
+        <span style="width:6px;height:6px;border-radius:50%;background:#ef4444;display:inline-block"></span>Inactivo</span>`;
 }
 
 function _userAvatar(username) {
@@ -2432,12 +2138,10 @@ function _userAvatar(username) {
 function _renderUsersTable(rows) {
   const tbody = document.getElementById('users-tbody');
   if (!tbody) return;
-
   if (!rows.length) {
     tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--text3);padding:32px">Sin usuarios registrados</td></tr>`;
     return;
   }
-
   tbody.innerHTML = rows.map(u => `
     <tr style="transition:background .15s" onmouseenter="this.style.background='rgba(255,255,255,.03)'" onmouseleave="this.style.background=''">
       <td style="padding:12px 16px">
@@ -2462,25 +2166,21 @@ function _renderUsersTable(rows) {
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
               <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
               <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-            </svg>
-            Editar
+            </svg>Editar
           </button>
           <button onclick="toggleUserEnabled('${u.id}', ${u.enabled})" title="${u.enabled ? 'Desactivar' : 'Activar'}"
             style="display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:6px;
             font-size:12px;font-weight:500;cursor:pointer;border:1px solid ${u.enabled ? 'rgba(239,68,68,.25)' : 'rgba(34,197,94,.25)'};
             background:${u.enabled ? 'rgba(239,68,68,.08)' : 'rgba(34,197,94,.08)'};
             color:${u.enabled ? '#fca5a5' : '#86efac'};transition:all .15s"
-            onmouseenter="this.style.opacity='.8'"
-            onmouseleave="this.style.opacity='1'">
+            onmouseenter="this.style.opacity='.8'" onmouseleave="this.style.opacity='1'">
             ${u.enabled
               ? `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg> Desactivar`
-              : `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg> Activar`
-            }
+              : `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg> Activar`}
           </button>
         </div>
       </td>
-    </tr>
-  `).join('');
+    </tr>`).join('');
 }
 
 function openUserForm(userId) {
@@ -2490,7 +2190,6 @@ function openUserForm(userId) {
   errEl.style.display = 'none';
 
   if (userId) {
-    // Modo edición — comparar como string para evitar tipo mismatch
     const u = _usersCache.find(x => String(x.id) === String(userId));
     if (!u) return;
     document.getElementById('uf-username').value  = u.username;
@@ -2530,31 +2229,14 @@ async function saveUser() {
 
   errEl.style.display = 'none';
 
-  if (username.length < 3) {
-    errEl.textContent = 'El nombre de usuario debe tener al menos 3 caracteres.';
-    errEl.style.display = '';
-    return;
-  }
-  if (!editingId && !password) {
-    errEl.textContent = 'La contraseña es obligatoria para nuevos usuarios.';
-    errEl.style.display = '';
-    return;
-  }
-  if (password && password.length < 6) {
-    errEl.textContent = 'La contraseña debe tener al menos 6 caracteres.';
-    errEl.style.display = '';
-    return;
-  }
-  if (password && password !== password2) {
-    errEl.textContent = 'Las contraseñas no coinciden.';
-    errEl.style.display = '';
-    return;
-  }
+  if (username.length < 3)           { errEl.textContent = 'El nombre de usuario debe tener al menos 3 caracteres.'; errEl.style.display = ''; return; }
+  if (!editingId && !password)       { errEl.textContent = 'La contraseña es obligatoria para nuevos usuarios.'; errEl.style.display = ''; return; }
+  if (password && password.length < 6) { errEl.textContent = 'La contraseña debe tener al menos 6 caracteres.'; errEl.style.display = ''; return; }
+  if (password && password !== password2) { errEl.textContent = 'Las contraseñas no coinciden.'; errEl.style.display = ''; return; }
 
-  // Verificar duplicado localmente antes de ir al servidor (más rápido)
   if (!editingId) {
     const alreadyExists = USERS.some(u => u.username.toLowerCase() === username.toLowerCase());
-    if (alreadyExists) return showUfError(`El usuario "${username}" ya existe. Elige otro nombre.`);
+    if (alreadyExists) { errEl.textContent = `El usuario "${username}" ya existe.`; errEl.style.display = ''; return; }
   }
 
   btn.disabled    = true;
@@ -2590,20 +2272,13 @@ async function toggleUserEnabled(userId, currentEnabled) {
     showToast('Usuario actualizado', `Usuario ${currentEnabled ? 'desactivado' : 'activado'} correctamente.`);
     await loadUsers();
   } catch (e) {
-    showToast('Error', e.message || 'No se pudo actualizar el usuario.', 'error');
+    showToast('Error', e.message || 'No se pudo actualizar el usuario.');
   }
 }
 
-
-
-/* ════════════════════════════════════════════════════════════════
-   MÓDULO CERTIFICADO GPS
-   - openCertModal(): abre el modal prellenando datos de _valUnit
-   - generarCertificadoPDF(): genera el PDF con jsPDF + QR
-   - Código UUID único embebido en QR para validación futura
-════════════════════════════════════════════════════════════════ */
-
-/* ── UUID simple (crypto.randomUUID con fallback) ── */
+/* ══════════════════════════════════════════════════════════════
+   CERTIFICADOS
+══════════════════════════════════════════════════════════════ */
 function _certUUID() {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
@@ -2612,10 +2287,8 @@ function _certUUID() {
   });
 }
 
-/* ── Helpers ── */
 function _certFechaLarga(dateStr) {
-  const meses = ['enero','febrero','marzo','abril','mayo','junio',
-                 'julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
   const d = new Date(dateStr + 'T12:00:00');
   return `${d.getDate()} de ${meses[d.getMonth()]} del ${d.getFullYear()}`;
 }
@@ -2624,8 +2297,6 @@ function regenerarCodigoCert() {
   document.getElementById('cert-codigo').value = _certUUID();
 }
 
-/* ── Abrir modal ── */
-/* ── Cargador dinámico de librerías de certificado ── */
 let _certLibsLoaded = false;
 function _loadCertLibs() {
   if (_certLibsLoaded) return Promise.resolve();
@@ -2637,7 +2308,7 @@ function _loadCertLibs() {
     let loaded = 0;
     scripts.forEach(src => {
       const s = document.createElement('script');
-      s.src = src;
+      s.src     = src;
       s.onload  = () => { if (++loaded === scripts.length) { _certLibsLoaded = true; resolve(); } };
       s.onerror = () => reject(new Error('No se pudo cargar: ' + src));
       document.head.appendChild(s);
@@ -2646,10 +2317,7 @@ function _loadCertLibs() {
 }
 
 function openCertModal() {
-  // Precargar librerías en paralelo mientras se abre el modal
   _loadCertLibs().catch(err => console.warn('Cert libs:', err));
-
-  // Prellenar con datos de la unidad actual
   const u = _valUnit || {};
   document.getElementById('cert-empresa').value      = u.name  || '';
   document.getElementById('cert-rut').value          = u.rut   || '';
@@ -2660,16 +2328,13 @@ function openCertModal() {
   document.getElementById('cert-firmante').value     = 'Pablo Soto';
   document.getElementById('cert-rut-firmante').value = '15.563.666-1';
   document.getElementById('cert-codigo').value       = _certUUID();
-
   document.getElementById('cert-modal').classList.add('show');
 }
 
-/* ── Cerrar modal ── */
 function closeCertModal() {
   document.getElementById('cert-modal').classList.remove('show');
 }
 
-/* ── Extraer datos del formulario del modal ── */
 function _getCertFormData() {
   const validez   = document.getElementById('cert-validez').value || 'years:1';
   const [tipo, n] = validez.split(':');
@@ -2700,7 +2365,6 @@ function _getCertFormData() {
   };
 }
 
-/* ── Guardar solo en backend (sin generar PDF) ── */
 async function guardarSoloCertificado() {
   const btn = event?.target?.closest('button');
   if (btn) { btn.disabled = true; btn.textContent = 'Guardando…'; }
@@ -2708,66 +2372,38 @@ async function guardarSoloCertificado() {
   const d = _getCertFormData();
   if (!d.patente || !d.imei) {
     showToast('Error', 'Patente e IMEI son obligatorios.');
-    if (btn) { btn.disabled = false; btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Guardar'; }
+    if (btn) { btn.disabled = false; btn.textContent = 'Guardar'; }
     return;
   }
 
   try {
     await api.post('/certificados', {
-      id:               d.codigo,
-      patente:          d.patente,
-      imei:             d.imei,
-      empresa:          d.empresa  || null,
-      rut_empresa:      d.rut      || null,
-      firmante:         d.firmante || null,
-      rut_firmante:     d.rutFirm  || null,
-      fecha_emision:    d.fechaStr,
+      id: d.codigo, patente: d.patente, imei: d.imei,
+      empresa: d.empresa || null, rut_empresa: d.rut || null,
+      firmante: d.firmante || null, rut_firmante: d.rutFirm || null,
+      fecha_emision: d.fechaStr,
       fecha_vencimiento: d.fechaVencimiento.toISOString().slice(0, 10),
-      validez_texto:    d.validezTexto,
+      validez_texto: d.validezTexto,
     });
     showToast('Certificado', `✅ Certificado registrado para ${d.patente}`);
     closeCertModal();
   } catch (e) {
     showToast('Error', 'No se pudo registrar el certificado.');
-    if (btn) { btn.disabled = false; btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Guardar'; }
+    if (btn) { btn.disabled = false; btn.textContent = 'Guardar'; }
   }
 }
 
-/* ── Generar PDF ── */
 async function generarCertificadoPDF() {
-  // Asegurar que las librerías estén cargadas
-  try { await _loadCertLibs(); } catch(e) {
-    showToast('Error', 'No se pudieron cargar las librerías del certificado.'); return;
-  }
-  const empresa    = document.getElementById('cert-empresa').value.trim();
-  const rut        = document.getElementById('cert-rut').value.trim();
-  const patente    = document.getElementById('cert-patente').value.trim().toUpperCase();
-  const imei       = document.getElementById('cert-imei').value.trim();
-  const fechaStr   = document.getElementById('cert-fecha').value;
-  const validezRaw = document.getElementById('cert-validez').value; // "days:15", "months:6", "years:1"
-  const [validezTipo, validezNum] = validezRaw.split(':');
-  const validezN   = parseInt(validezNum, 10);
-  const firmante   = document.getElementById('cert-firmante').value.trim();
-  const rutFirm    = document.getElementById('cert-rut-firmante').value.trim();
-  const codigo     = document.getElementById('cert-codigo').value.trim();
+  try { await _loadCertLibs(); }
+  catch(e) { showToast('Error', 'No se pudieron cargar las librerías del certificado.'); return; }
 
-  if (!patente || !imei) {
-    showToast('Certificado', 'La patente y el IMEI son obligatorios.'); return;
-  }
+  const d = _getCertFormData();
+  if (!d.patente || !d.imei) { showToast('Certificado', 'La patente y el IMEI son obligatorios.'); return; }
 
-  /* ── Calcular fecha vencimiento ── */
-  const fechaEmision     = new Date(fechaStr + 'T12:00:00');
-  const fechaVencimiento = new Date(fechaEmision);
-  if (validezTipo === 'days')   fechaVencimiento.setDate(fechaVencimiento.getDate() + validezN);
-  if (validezTipo === 'months') fechaVencimiento.setMonth(fechaVencimiento.getMonth() + validezN);
-  if (validezTipo === 'years')  fechaVencimiento.setFullYear(fechaVencimiento.getFullYear() + validezN);
+  const fechaEmision     = new Date(d.fechaStr + 'T12:00:00');
+  const fechaVencimiento = d.fechaVencimiento;
 
-  const _vMap = { 'days:15':'15 (Quince) días', 'days:30':'30 (Treinta) días',
-                  'months:6':'06 (Seis) meses', 'years:1':'01 (Un) año', 'years:2':'02 (Dos) años' };
-  const validezTexto = _vMap[validezRaw] || `${validezN} ${validezTipo}`;
-
-  /* ── Generar QR como dataURL ── */
-  const qrUrl = `${location.origin}/certificado.html?id=${codigo}`;
+  const qrUrl     = `${location.origin}/certificado.html?id=${d.codigo}`;
   const qrDataUrl = await new Promise(resolve => {
     const div = document.createElement('div');
     div.style.display = 'none';
@@ -2785,73 +2421,51 @@ async function generarCertificadoPDF() {
     }, 300);
   });
 
-  /* ══════════════════════════════════════════════
-     CONSTRUIR PDF con jsPDF
-  ══════════════════════════════════════════════ */
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-  const W = 210, H = 297;
-  const ml = 25, mr = 25; // márgenes
-  const cw = W - ml - mr; // ancho útil
+  const W = 210, H = 297, ml = 25, mr = 25, cw = W - ml - mr;
 
-  /* ── Colores corporativos Síguelo GPS ── */
-  const VERDE  = [22,  163,  74];
-  const NEGRO  = [17,  24,   39];
-  const GRIS   = [100, 116, 139];
-  const GRIS_L = [241, 245, 249];
+  const VERDE    = [22, 163, 74];
+  const NEGRO    = [17, 24, 39];
+  const GRIS     = [100, 116, 139];
+  const GRIS_L   = [241, 245, 249];
   const AMARILLO = [234, 179, 8];
 
   let y = 0;
 
-  /* ── HEADER con fondo verde ── */
   doc.setFillColor(...NEGRO);
   doc.rect(0, 0, W, 38, 'F');
-
-  /* Logo texto "Síguelo | gps" */
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(22);
   doc.setTextColor(255, 255, 255);
   doc.text('Síguelo', ml, 20);
-
   doc.setTextColor(...AMARILLO);
   doc.text('| gps', ml + 35, 20);
-
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
   doc.setTextColor(255, 255, 255);
   doc.text('Tecnologías de rastreo y seguridad limitada', ml, 28);
   doc.text('RUT: 76.420.512-K', ml, 33.5);
-
-  /* Línea decorativa lateral derecha */
   doc.setFillColor(...AMARILLO);
   doc.rect(W - 8, 0, 8, 38, 'F');
 
   y = 60;
-
-  /* ── TÍTULO ── */
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(26);
   doc.setTextColor(...NEGRO);
   doc.text('Certificado', W / 2, y, { align: 'center' });
-
   y += 18;
-
-  /* ── CUERPO texto ── */
-  const empresa_bold   = empresa  || '[Empresa]';
-  const rut_bold       = rut      || '[RUT]';
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(11);
   doc.setTextColor(...NEGRO);
-
-  const texto1 = `Por medio de la presente, Tecnologías de rastreo y seguridad limitada Rut: 76.420.512-K, representada por ${firmante}, Rut ${rutFirm}, certifica que el vehículo más adelante individualizado, perteneciente a la empresa`;
+  const texto1 = `Por medio de la presente, Tecnologías de rastreo y seguridad limitada Rut: 76.420.512-K, representada por ${d.firmante}, Rut ${d.rutFirm}, certifica que el vehículo más adelante individualizado, perteneciente a la empresa`;
   const lines1 = doc.splitTextToSize(texto1, cw);
   doc.text(lines1, ml, y, { align: 'justify', maxWidth: cw });
   y += lines1.length * 5.5;
 
-  /* Empresa en negrita */
   doc.setFont('helvetica', 'bolditalic');
-  doc.text(`${empresa_bold}, RUT: ${rut_bold},`, ml, y);
+  doc.text(`${d.empresa || '[Empresa]'}, RUT: ${d.rut || '[RUT]'},`, ml, y);
   y += 6;
   doc.setFont('helvetica', 'normal');
   const texto2 = 'se encuentra equipado con dispositivo de localización GPS para control de velocidad y logística.';
@@ -2859,100 +2473,79 @@ async function generarCertificadoPDF() {
   doc.text(lines2, ml, y, { align: 'justify', maxWidth: cw });
   y += lines2.length * 5.5 + 12;
 
-  /* ── TABLA PPU / IMEI ── */
   const thH = 9, tdH = 11;
-  const col1 = ml, col2 = ml + cw / 2;
-  const tw   = cw;
-
-  // Header tabla
   doc.setFillColor(...NEGRO);
-  doc.rect(col1, y, tw, thH, 'F');
+  doc.rect(ml, y, cw, thH, 'F');
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(10);
   doc.setTextColor(255, 255, 255);
-  doc.text('PPU', col1 + tw / 4, y + 6.2, { align: 'center' });
-  doc.text('IMEI', col1 + (tw * 3) / 4, y + 6.2, { align: 'center' });
-
-  // Borde y fila datos
+  doc.text('PPU', ml + cw / 4, y + 6.2, { align: 'center' });
+  doc.text('IMEI', ml + (cw * 3) / 4, y + 6.2, { align: 'center' });
   y += thH;
   doc.setDrawColor(...GRIS);
   doc.setLineWidth(0.3);
-  doc.rect(col1, y, tw / 2, tdH);
-  doc.rect(col1 + tw / 2, y, tw / 2, tdH);
+  doc.rect(ml, y, cw / 2, tdH);
+  doc.rect(ml + cw / 2, y, cw / 2, tdH);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(12);
   doc.setTextColor(...NEGRO);
-  doc.text(patente, col1 + tw / 4, y + 7.5, { align: 'center' });
-  doc.text(imei,    col1 + (tw * 3) / 4, y + 7.5, { align: 'center' });
+  doc.text(d.patente, ml + cw / 4, y + 7.5, { align: 'center' });
+  doc.text(d.imei,    ml + (cw * 3) / 4, y + 7.5, { align: 'center' });
   y += tdH + 14;
 
-  /* ── TEXTO VALIDEZ ── */
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(11);
   doc.setTextColor(...NEGRO);
-  const texto3 = `Se extiende este certificado a expresa petición del interesado para los fines que estime convenientes, y con una validez de ${validezTexto} desde la fecha de emisión, ${_certFechaLarga(fechaStr)}.`;
+  const texto3 = `Se extiende este certificado a expresa petición del interesado para los fines que estime convenientes, y con una validez de ${d.validezTexto} desde la fecha de emisión, ${_certFechaLarga(d.fechaStr)}.`;
   const lines3 = doc.splitTextToSize(texto3, cw);
   doc.text(lines3, ml, y, { align: 'justify', maxWidth: cw });
   y += lines3.length * 5.5 + 10;
 
-  /* ── CÓDIGO ÚNICO ── */
   doc.setFillColor(...GRIS_L);
   doc.roundedRect(ml, y, cw, 10, 2, 2, 'F');
   doc.setFont('courier', 'normal');
   doc.setFontSize(8.5);
   doc.setTextColor(...GRIS);
-  doc.text(`Código de certificado: ${codigo}`, ml + 4, y + 6.5);
+  doc.text(`Código de certificado: ${d.codigo}`, ml + 4, y + 6.5);
   y += 18;
 
-  /* ── FIRMA DIGITAL ── */
   doc.setFont('helvetica', 'italic');
   doc.setFontSize(11);
   doc.setTextColor(...GRIS);
   doc.text('El presente documento posee firma digital para garantizar su autenticidad.', ml, y, { align: 'justify', maxWidth: cw });
   y += 16;
 
-  /* ── ATENTAMENTE ── */
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(11);
   doc.setTextColor(...NEGRO);
   doc.text('Atentamente,', ml, y);
   y += 14;
-
   doc.setFont('helvetica', 'bold');
-  doc.text(firmante, ml, y);
+  doc.text(d.firmante, ml, y);
   y += 6;
   doc.setFont('helvetica', 'normal');
   doc.text('Síguelo GPS', ml, y);
   y += 6;
   doc.setTextColor(22, 163, 74);
   doc.text('soporte@siguelogps.cl', ml, y);
-  doc.setTextColor(...NEGRO);
 
-  /* ── QR de validación (esquina inferior derecha del contenido) ── */
   if (qrDataUrl) {
     const qrSize = 28;
-    const qrX = W - mr - qrSize;
-    const qrY = H - 55;
-    doc.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
+    doc.addImage(qrDataUrl, 'PNG', W - mr - qrSize, H - 55, qrSize, qrSize);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7);
     doc.setTextColor(...GRIS);
-    doc.text('Validar documento', qrX + qrSize / 2, qrY + qrSize + 4, { align: 'center' });
+    doc.text('Validar documento', W - mr - qrSize / 2, H - 55 + qrSize + 4, { align: 'center' });
   }
 
-  /* ── FOOTER ── */
   doc.setFillColor(...NEGRO);
   doc.rect(0, H - 18, W, 18, 'F');
   doc.setFillColor(...AMARILLO);
   doc.rect(0, H - 18, 6, 18, 'F');
-
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   doc.setTextColor(255, 255, 255);
-  doc.text(
-    'Tecnologías de rastreo y seguridad limitada, San Pio X 2460, oficina 706, providencia.',
-    W / 2, H - 11, { align: 'center' }
-  );
+  doc.text('Tecnologías de rastreo y seguridad limitada, San Pio X 2460, oficina 706, providencia.', W / 2, H - 11, { align: 'center' });
   doc.setTextColor(...AMARILLO);
   doc.textWithLink('www.siguelogps.cl', W / 2 - 20, H - 5.5, { url: 'https://www.siguelogps.cl', align: 'center' });
   doc.setTextColor(255, 255, 255);
@@ -2960,50 +2553,26 @@ async function generarCertificadoPDF() {
   doc.setTextColor(...AMARILLO);
   doc.textWithLink('info@siguelogps.cl', W / 2 + 16, H - 5.5, { url: 'mailto:info@siguelogps.cl', align: 'center' });
 
-  /* ── Guardar ── */
-  const filename = `Certificado_GPS_${patente}_${fechaStr}.pdf`;
+  const filename = `Certificado_GPS_${d.patente}_${d.fechaStr}.pdf`;
   doc.save(filename);
   closeCertModal();
 
-  /* ── Registrar certificado en el backend (fire & forget) ── */
-  const API = typeof API_BASE !== 'undefined' ? API_BASE
-    : 'https://app-validaciones-production.up.railway.app';
   api.post('/certificados', {
-    id:               codigo,
-    patente,
-    imei,
-    empresa:          empresa  || null,
-    rut_empresa:      rut      || null,
-    firmante:         firmante || null,
-    rut_firmante:     rutFirm  || null,
-    fecha_emision:    fechaStr,
+    id: d.codigo, patente: d.patente, imei: d.imei,
+    empresa: d.empresa || null, rut_empresa: d.rut || null,
+    firmante: d.firmante || null, rut_firmante: d.rutFirm || null,
+    fecha_emision: d.fechaStr,
     fecha_vencimiento: fechaVencimiento.toISOString().slice(0, 10),
-    validez_texto:    validezTexto,
+    validez_texto: d.validezTexto,
   }).then(() => {
     showToast('Certificado', `✅ PDF generado y registrado: ${filename}`);
   }).catch(() => {
-    showToast('Certificado', `⚠️ PDF generado (sin registrar en servidor): ${filename}`);
+    showToast('Certificado', `⚠️ PDF generado (sin registrar): ${filename}`);
   });
 }
 
-/* ════════════════════════════════════════════════════════════════
-   MÓDULO GESTIÓN DE CERTIFICADOS (Configuración → Certificados)
-════════════════════════════════════════════════════════════════ */
-
-let _allCerts = [];   // cache para filtrar sin re-fetch
-
-/* ══════════════════════════════════════════════════════════════════
-   CERTIFICADOS MASIVOS — agregar a app.js
-   Funciones nuevas:
-     openCertBulkModal()     — modal emisión masiva por cliente
-     _certBulkRender()       — renderiza unidades del cliente seleccionado
-     emitirCertsBulk()       — llama POST /certificados/bulk
-     _certToggleAll(chk)     — seleccionar/deseleccionar todos
-     invalidarSeleccionados() — llama PATCH /certificados/bulk/invalidar
-     eliminarSeleccionados()  — llama DELETE /certificados/bulk
-══════════════════════════════════════════════════════════════════ */
-
-/* ── Estado selección en tabla ─────────────────────────────────── */
+/* ── Gestión de certificados (tabla) ─────────────────────────── */
+let _allCerts    = [];
 let _certSelected = new Set();
 
 function _certUpdateBulkBar() {
@@ -3013,10 +2582,7 @@ function _certUpdateBulkBar() {
   bar.style.display = n > 0 ? 'flex' : 'none';
   const lbl = bar.querySelector('#cert-bulk-label');
   if (lbl) lbl.textContent = `${n} certificado${n !== 1 ? 's' : ''} seleccionado${n !== 1 ? 's' : ''}`;
-
-  // Habilitar "Eliminar" solo si todos los seleccionados son eliminables
-  const certs = window._allCerts || [];
-  const selCerts = certs.filter(c => _certSelected.has(c.id));
+  const selCerts      = (_allCerts || []).filter(c => _certSelected.has(c.id));
   const todosEliminables = selCerts.length > 0 && selCerts.every(c =>
     c.estado === 'invalidado' || c.estado === 'vencido' ||
     (c.estado === 'vigente' && new Date(c.fecha_vencimiento) < new Date())
@@ -3046,28 +2612,24 @@ async function invalidarSeleccionados() {
     await api.patch('/certificados/bulk/invalidar', { ids });
     _certSelected.clear();
     await loadCertificados();
-  } catch (e) {
-    alert('Error al invalidar: ' + e.message);
-  }
+  } catch (e) { alert('Error al invalidar: ' + e.message); }
 }
 
 async function eliminarSeleccionados() {
   if (!_certSelected.size) return;
   const ids = [..._certSelected];
-  if (!confirm(`¿Eliminar ${ids.length} certificado${ids.length !== 1 ? 's' : ''}?\nSolo se eliminarán los vencidos o invalidados.`)) return;
+  if (!confirm(`¿Eliminar ${ids.length} certificado${ids.length !== 1 ? 's' : ''}?`)) return;
   try {
     const res = await api.delete('/certificados/bulk', { ids });
     if (res.errors?.length) alert(`${res.deleted} eliminados. ${res.errors.length} no pudieron eliminarse.`);
     _certSelected.clear();
     await loadCertificados();
-  } catch (e) {
-    alert('Error al eliminar: ' + e.message);
-  }
+  } catch (e) { alert('Error al eliminar: ' + e.message); }
 }
 
-/* ── Modal emisión masiva ───────────────────────────────────────── */
-let _bulkClientes  = [];
-let _bulkUnidades  = [];
+/* ── Emisión masiva ──────────────────────────────────────────── */
+let _bulkClientes = [];
+let _bulkUnidades = [];
 
 async function openCertBulkModal() {
   let modal = document.getElementById('cert-bulk-modal');
@@ -3082,12 +2644,8 @@ async function openCertBulkModal() {
   }
   modal.style.display = 'flex';
 
-  // Cargar clientes y unidades en paralelo
   try {
-    const [clientes, units] = await Promise.all([
-      api.get('/clientes'),
-      api.get('/units'),
-    ]);
+    const [clientes, units] = await Promise.all([api.get('/clientes'), api.get('/units')]);
     _bulkClientes = clientes.filter(c => c.enabled !== false);
     _bulkUnidades = units.filter(u => u.enabled);
   } catch (e) {
@@ -3096,15 +2654,13 @@ async function openCertBulkModal() {
     return;
   }
 
-  const today     = new Date().toISOString().slice(0,10);
-  const nextYear  = new Date(Date.now() + 365*24*60*60*1000).toISOString().slice(0,10);
+  const today    = new Date().toISOString().slice(0,10);
+  const nextYear = new Date(Date.now() + 365*24*60*60*1000).toISOString().slice(0,10);
 
   modal.innerHTML = `
     <div style="background:var(--bg1);border:1px solid var(--border);border-radius:12px;
       width:min(780px,95vw);max-height:90vh;display:flex;flex-direction:column;
       box-shadow:0 20px 60px rgba(0,0,0,.5)">
-
-      <!-- Header -->
       <div style="padding:16px 20px;border-bottom:1px solid var(--border);
         display:flex;align-items:center;justify-content:space-between">
         <div style="display:flex;align-items:center;gap:10px">
@@ -3118,60 +2674,31 @@ async function openCertBulkModal() {
           style="width:30px;height:30px;border-radius:6px;border:1px solid var(--border);
             background:transparent;cursor:pointer;color:var(--text2);font-size:16px">✕</button>
       </div>
-
-      <!-- Paso 1: Cliente + campos comunes -->
       <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:grid;
         grid-template-columns:1fr 1fr;gap:12px">
         <div style="grid-column:1/-1">
           <label class="label">Cliente</label>
           <select id="bulk-cliente" class="input" onchange="_certBulkRender()" style="width:100%;cursor:pointer">
             <option value="">— Seleccionar cliente —</option>
-            ${_bulkClientes.map(c => `<option value="${c.id}">${c.name}${c.rut ? ' · '+c.rut : ''}</option>`).join('')}
+            ${_bulkClientes.map(c => `<option value="${c.id}">${c.nombre}${c.rut ? ' · '+c.rut : ''}</option>`).join('')}
           </select>
         </div>
-        <div>
-          <label class="label">Empresa (en certificado)</label>
-          <input id="bulk-empresa" class="input" placeholder="Nombre empresa" style="width:100%"/>
-        </div>
-        <div>
-          <label class="label">RUT empresa</label>
-          <input id="bulk-rut-empresa" class="input" placeholder="12.345.678-9" style="width:100%"/>
-        </div>
-        <div>
-          <label class="label">Firmante</label>
-          <input id="bulk-firmante" class="input" placeholder="Nombre firmante" style="width:100%"/>
-        </div>
-        <div>
-          <label class="label">RUT firmante</label>
-          <input id="bulk-rut-firmante" class="input" placeholder="9.876.543-2" style="width:100%"/>
-        </div>
-        <div>
-          <label class="label">Fecha emisión</label>
-          <input id="bulk-f-emision" type="date" class="input" value="${today}" style="width:100%"/>
-        </div>
-        <div>
-          <label class="label">Fecha vencimiento</label>
-          <input id="bulk-f-vencimiento" type="date" class="input" value="${nextYear}" style="width:100%"/>
-        </div>
+        <div><label class="label">Empresa (en certificado)</label><input id="bulk-empresa" class="input" placeholder="Nombre empresa" style="width:100%"/></div>
+        <div><label class="label">RUT empresa</label><input id="bulk-rut-empresa" class="input" placeholder="12.345.678-9" style="width:100%"/></div>
+        <div><label class="label">Firmante</label><input id="bulk-firmante" class="input" placeholder="Nombre firmante" style="width:100%"/></div>
+        <div><label class="label">RUT firmante</label><input id="bulk-rut-firmante" class="input" placeholder="9.876.543-2" style="width:100%"/></div>
+        <div><label class="label">Fecha emisión</label><input id="bulk-f-emision" type="date" class="input" value="${today}" style="width:100%"/></div>
+        <div><label class="label">Fecha vencimiento</label><input id="bulk-f-vencimiento" type="date" class="input" value="${nextYear}" style="width:100%"/></div>
       </div>
-
-      <!-- Paso 2: Tabla de unidades del cliente -->
       <div style="overflow-y:auto;flex:1;min-height:100px" id="bulk-units-wrap">
-        <div style="padding:24px;text-align:center;color:var(--text3)">
-          Selecciona un cliente para ver sus unidades
-        </div>
+        <div style="padding:24px;text-align:center;color:var(--text3)">Selecciona un cliente para ver sus unidades</div>
       </div>
-
-      <!-- Footer -->
       <div style="padding:12px 20px;border-top:1px solid var(--border);
         display:flex;justify-content:space-between;align-items:center">
         <span id="bulk-count-label" style="font-size:12px;color:var(--text3)"></span>
         <div style="display:flex;gap:8px">
-          <button onclick="document.getElementById('cert-bulk-modal').style.display='none'"
-            class="btn sm">Cancelar</button>
-          <button onclick="emitirCertsBulk()" class="btn sm primary" id="bulk-btn-emitir" disabled>
-            Emitir certificados
-          </button>
+          <button onclick="document.getElementById('cert-bulk-modal').style.display='none'" class="btn sm">Cancelar</button>
+          <button onclick="emitirCertsBulk()" class="btn sm primary" id="bulk-btn-emitir" disabled>Emitir certificados</button>
         </div>
       </div>
     </div>`;
@@ -3186,24 +2713,21 @@ function _certBulkRender() {
   const units = _bulkUnidades.filter(u => u.cliente_id === clienteId);
 
   if (!units.length) {
-    wrap.innerHTML = `<div style="padding:24px;text-align:center;color:var(--text3)">
-      Este cliente no tiene unidades activas asignadas.</div>`;
+    wrap.innerHTML = `<div style="padding:24px;text-align:center;color:var(--text3)">Este cliente no tiene unidades activas asignadas.</div>`;
     if (btnEmitir) btnEmitir.disabled = true;
     return;
   }
 
-  // Auto-rellenar empresa con el nombre del cliente
   const cliente = _bulkClientes.find(c => c.id === clienteId);
   const empInput = document.getElementById('bulk-empresa');
-  if (empInput && !empInput.value && cliente) empInput.value = cliente.name;
+  if (empInput && !empInput.value && cliente) empInput.value = cliente.nombre;
 
   wrap.innerHTML = `
     <table style="width:100%;border-collapse:collapse">
       <thead><tr style="background:var(--bg2);font-size:11px;text-transform:uppercase;
         letter-spacing:.5px;color:var(--text3);position:sticky;top:0">
         <th style="padding:8px 12px;width:36px">
-          <input type="checkbox" id="bulk-chk-all" onchange="_bulkToggleAll(this)"
-            title="Seleccionar todas"/>
+          <input type="checkbox" id="bulk-chk-all" onchange="_bulkToggleAll(this)" title="Seleccionar todas"/>
         </th>
         <th style="padding:8px 12px;text-align:left;font-weight:600">Patente</th>
         <th style="padding:8px 12px;text-align:left;font-weight:600">IMEI</th>
@@ -3212,8 +2736,7 @@ function _certBulkRender() {
       <tbody>
         ${units.map(u => `
           <tr style="border-bottom:1px solid var(--border)"
-            onmouseenter="this.style.background='var(--bg2)'"
-            onmouseleave="this.style.background=''">
+            onmouseenter="this.style.background='var(--bg2)'" onmouseleave="this.style.background=''">
             <td style="padding:8px 12px">
               <input type="checkbox" class="bulk-unit-chk" data-imei="${u.imei}"
                 data-plate="${u.plate||''}" checked onchange="_bulkChkChange()"/>
@@ -3239,32 +2762,28 @@ function _bulkChkChange() {
   if (lbl) lbl.textContent = n > 0 ? `${n} unidad${n !== 1 ? 'es' : ''} seleccionada${n !== 1 ? 's' : ''}` : '';
   const btn = document.getElementById('bulk-btn-emitir');
   if (btn) btn.disabled = n === 0;
-  // Sincronizar checkbox cabecera
-  const all  = document.querySelectorAll('.bulk-unit-chk').length;
+  const all    = document.querySelectorAll('.bulk-unit-chk').length;
   const chkAll = document.getElementById('bulk-chk-all');
   if (chkAll) { chkAll.checked = n === all; chkAll.indeterminate = n > 0 && n < all; }
 }
 
 async function emitirCertsBulk() {
-  const empresa        = document.getElementById('bulk-empresa')?.value.trim()       || '';
-  const rut_empresa    = document.getElementById('bulk-rut-empresa')?.value.trim()   || '';
-  const firmante       = document.getElementById('bulk-firmante')?.value.trim()      || '';
-  const rut_firmante   = document.getElementById('bulk-rut-firmante')?.value.trim()  || '';
-  const fecha_emision  = document.getElementById('bulk-f-emision')?.value            || '';
-  const fecha_vencimiento = document.getElementById('bulk-f-vencimiento')?.value     || '';
+  const empresa       = document.getElementById('bulk-empresa')?.value.trim()      || '';
+  const rut_empresa   = document.getElementById('bulk-rut-empresa')?.value.trim()  || '';
+  const firmante      = document.getElementById('bulk-firmante')?.value.trim()     || '';
+  const rut_firmante  = document.getElementById('bulk-rut-firmante')?.value.trim() || '';
+  const fecha_emision = document.getElementById('bulk-f-emision')?.value           || '';
+  const fecha_vencimiento = document.getElementById('bulk-f-vencimiento')?.value   || '';
 
-  if (!fecha_emision || !fecha_vencimiento)
-    return alert('Completa las fechas de emisión y vencimiento.');
+  if (!fecha_emision || !fecha_vencimiento) return alert('Completa las fechas de emisión y vencimiento.');
 
   const checks = [...document.querySelectorAll('.bulk-unit-chk:checked')];
   if (!checks.length) return alert('Selecciona al menos una unidad.');
 
   const certificados = checks.map(c => ({
-    patente: c.dataset.plate || '',
-    imei:    c.dataset.imei  || '',
+    patente: c.dataset.plate || '', imei: c.dataset.imei || '',
     empresa, rut_empresa, firmante, rut_firmante,
-    fecha_emision, fecha_vencimiento,
-    validez_texto: '1 año',
+    fecha_emision, fecha_vencimiento, validez_texto: '1 año',
   }));
 
   const btn = document.getElementById('bulk-btn-emitir');
@@ -3273,11 +2792,9 @@ async function emitirCertsBulk() {
   try {
     const res = await api.post('/certificados/bulk', { certificados });
     document.getElementById('cert-bulk-modal').style.display = 'none';
-
     let msg = `✅ ${res.created} certificado${res.created !== 1 ? 's' : ''} emitido${res.created !== 1 ? 's' : ''} correctamente.`;
     if (res.errors?.length) msg += `\n⚠ ${res.errors.length} no pudieron emitirse.`;
     alert(msg);
-
     await loadCertificados();
   } catch (e) {
     alert('Error al emitir: ' + e.message);
@@ -3290,7 +2807,8 @@ async function loadCertificados() {
   if (!wrap) return;
 
   wrap.innerHTML = `<div style="padding:28px;text-align:center;color:var(--text2);font-size:13px">
-    <div style="display:inline-block;width:18px;height:18px;border-radius:50%;border:2px solid rgba(148,163,184,.2);border-top-color:#38bdf8;animation:spin .8s linear infinite;margin-bottom:8px"></div><br>Cargando…</div>`;
+    <div style="display:inline-block;width:18px;height:18px;border-radius:50%;border:2px solid rgba(148,163,184,.2);
+      border-top-color:#38bdf8;animation:spin .8s linear infinite;margin-bottom:8px"></div><br>Cargando…</div>`;
 
   try {
     _allCerts = await api.get('/certificados');
@@ -3304,29 +2822,20 @@ function _renderCertTable() {
   const wrap = document.getElementById('cert-list-wrap');
   if (!wrap) return;
 
-  // Leer filtros actuales
-  const q       = (document.getElementById('cert-filter-q')?.value     || '').toLowerCase().trim();
-  const estado  =  document.getElementById('cert-filter-estado')?.value || 'todos';
+  const q      = (document.getElementById('cert-filter-q')?.value     || '').toLowerCase().trim();
+  const estado =  document.getElementById('cert-filter-estado')?.value || 'todos';
+  const hoy    = new Date();
 
-  const hoy = new Date();
   const filtered = _allCerts.filter(cert => {
-    // Estado efectivo
     let est = cert.estado;
     if (est === 'vigente' && new Date(cert.fecha_vencimiento) < hoy) est = 'vencido';
-
     if (estado !== 'todos' && est !== estado) return false;
-    if (q && !(
-      (cert.patente  || '').toLowerCase().includes(q) ||
-      (cert.empresa  || '').toLowerCase().includes(q) ||
-      (cert.imei     || '').toLowerCase().includes(q)
-    )) return false;
+    if (q && !((cert.patente||'').toLowerCase().includes(q) || (cert.empresa||'').toLowerCase().includes(q) || (cert.imei||'').toLowerCase().includes(q))) return false;
     return true;
   });
 
   if (!filtered.length) {
-    wrap.innerHTML = `
-      ${_certFilterBar()}
-      <div style="padding:32px;text-align:center;color:var(--text2);font-size:13px">No hay certificados que coincidan con los filtros.</div>`;
+    wrap.innerHTML = `${_certFilterBar()}<div style="padding:32px;text-align:center;color:var(--text2);font-size:13px">No hay certificados que coincidan con los filtros.</div>`;
     _bindCertFilters();
     return;
   }
@@ -3337,12 +2846,8 @@ function _renderCertTable() {
       background:var(--bg2);border:1px solid var(--border);border-radius:8px;
       align-items:center;gap:10px;flex-wrap:wrap">
       <span id="cert-bulk-label" style="font-size:13px;font-weight:600;color:var(--text2)"></span>
-      <button onclick="invalidarSeleccionados()" class="btn sm amber" style="margin-left:auto">
-        🚫 Invalidar seleccionadas
-      </button>
-      <button onclick="eliminarSeleccionados()" id="cert-btn-eliminar-sel" class="btn sm danger" disabled>
-        🗑 Eliminar seleccionadas
-      </button>
+      <button onclick="invalidarSeleccionados()" class="btn sm amber" style="margin-left:auto">🚫 Invalidar seleccionadas</button>
+      <button onclick="eliminarSeleccionados()" id="cert-btn-eliminar-sel" class="btn sm danger" disabled>🗑 Eliminar seleccionadas</button>
     </div>
     <div style="overflow-x:auto;margin-top:12px">
       <table style="width:100%;border-collapse:collapse;font-size:13px">
@@ -3356,9 +2861,7 @@ function _renderCertTable() {
             ).join('')}
           </tr>
         </thead>
-        <tbody>
-          ${filtered.map(cert => _certRow(cert)).join('')}
-        </tbody>
+        <tbody>${filtered.map(cert => _certRow(cert)).join('')}</tbody>
       </table>
     </div>`;
   _bindCertFilters();
@@ -3372,8 +2875,7 @@ function _certFilterBar() {
       <div style="flex:1;min-width:180px;position:relative">
         <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);opacity:.4" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         <input id="cert-filter-q" class="input" placeholder="Buscar patente, empresa, IMEI…"
-          value="${q}" oninput="_renderCertTable()"
-          style="padding-left:30px;font-size:12px" />
+          value="${q}" oninput="_renderCertTable()" style="padding-left:30px;font-size:12px" />
       </div>
       <select id="cert-filter-estado" class="input" onchange="_renderCertTable()"
         style="width:140px;font-size:12px;cursor:pointer">
@@ -3387,27 +2889,25 @@ function _certFilterBar() {
 }
 
 function _bindCertFilters() {
-  // Actualizar contador
   const countEl = document.getElementById('cert-count');
-  if (countEl) {
-    const hoy = new Date();
-    const q      = (document.getElementById('cert-filter-q')?.value     || '').toLowerCase();
-    const estado =  document.getElementById('cert-filter-estado')?.value || 'todos';
-    const n = _allCerts.filter(cert => {
-      let est = cert.estado;
-      if (est === 'vigente' && new Date(cert.fecha_vencimiento) < hoy) est = 'vencido';
-      if (estado !== 'todos' && est !== estado) return false;
-      if (q && !((cert.patente||'').toLowerCase().includes(q)||(cert.empresa||'').toLowerCase().includes(q)||(cert.imei||'').toLowerCase().includes(q))) return false;
-      return true;
-    }).length;
-    countEl.textContent = `${n} resultado${n !== 1 ? 's' : ''}`;
-  }
+  if (!countEl) return;
+  const hoy    = new Date();
+  const q      = (document.getElementById('cert-filter-q')?.value     || '').toLowerCase();
+  const estado =  document.getElementById('cert-filter-estado')?.value || 'todos';
+  const n = _allCerts.filter(cert => {
+    let est = cert.estado;
+    if (est === 'vigente' && new Date(cert.fecha_vencimiento) < hoy) est = 'vencido';
+    if (estado !== 'todos' && est !== estado) return false;
+    if (q && !((cert.patente||'').toLowerCase().includes(q)||(cert.empresa||'').toLowerCase().includes(q)||(cert.imei||'').toLowerCase().includes(q))) return false;
+    return true;
+  }).length;
+  countEl.textContent = `${n} resultado${n !== 1 ? 's' : ''}`;
 }
 
 function _certRow(c) {
-  const hoy  = new Date();
-  const venc = new Date(c.fecha_vencimiento);
-  let estado = c.estado;
+  const hoy    = new Date();
+  const venc   = new Date(c.fecha_vencimiento);
+  let estado   = c.estado;
   if (estado === 'vigente' && venc < hoy) estado = 'vencido';
 
   const estadoHtml = {
@@ -3421,8 +2921,7 @@ function _certRow(c) {
   return `<tr style="border-bottom:1px solid rgba(148,163,184,.07);transition:background .12s"
     onmouseenter="this.style.background='rgba(255,255,255,.02)'" onmouseleave="this.style.background=''">
     <td style="padding:6px 10px;width:36px">
-      <input type="checkbox" class="cert-row-chk" data-id="${c.id}"
-        onchange="_certChkChange('${c.id}', this)"/>
+      <input type="checkbox" class="cert-row-chk" data-id="${c.id}" onchange="_certChkChange('${c.id}', this)"/>
     </td>
     <td style="padding:10px 12px;font-weight:700;letter-spacing:.5px;font-family:monospace">${c.patente}</td>
     <td style="padding:10px 12px;color:var(--text2);font-size:12px">${c.imei}</td>
@@ -3434,26 +2933,19 @@ function _certRow(c) {
       <div style="display:flex;gap:6px;flex-wrap:wrap">
         <a href="certificado.html?id=${c.id}" target="_blank"
           style="display:inline-flex;align-items:center;gap:4px;padding:4px 9px;border-radius:6px;font-size:11px;font-weight:600;background:rgba(56,189,248,.08);border:1px solid rgba(56,189,248,.15);color:#7dd3fc;text-decoration:none;white-space:nowrap">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-          Ver
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>Ver
         </a>
         ${estado !== 'invalidado'
           ? `<button onclick="invalidarCertificado('${c.id}',this)"
               style="display:inline-flex;align-items:center;gap:4px;padding:4px 9px;border-radius:6px;font-size:11px;font-weight:600;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.18);color:#fca5a5;cursor:pointer;white-space:nowrap">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-              Invalidar
-            </button>`
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>Invalidar</button>`
           : `<button onclick="revalidarCertificado('${c.id}',this)"
               style="display:inline-flex;align-items:center;gap:4px;padding:4px 9px;border-radius:6px;font-size:11px;font-weight:600;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);color:#86efac;cursor:pointer;white-space:nowrap">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
-              Revalidar
-            </button>`}
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>Revalidar</button>`}
         ${(estado === 'vencido' || estado === 'invalidado')
           ? `<button onclick="eliminarCertificado('${c.id}',this)"
               style="display:inline-flex;align-items:center;gap:4px;padding:4px 9px;border-radius:6px;font-size:11px;font-weight:600;background:rgba(100,116,139,.08);border:1px solid rgba(100,116,139,.2);color:#94a3b8;cursor:pointer;white-space:nowrap">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-              Eliminar
-            </button>`
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>Eliminar</button>`
           : ''}
       </div>
     </td>
@@ -3494,31 +2986,23 @@ async function eliminarCertificado(id, btn) {
     showToast('Certificados', 'Certificado eliminado.');
     await loadCertificados();
   } catch (e) {
-    showToast('Error', 'No se pudo eliminar. Solo se pueden eliminar certificados vencidos.');
+    showToast('Error', 'No se pudo eliminar.');
     btn.disabled = false; btn.textContent = 'Eliminar';
   }
 }
-/* ── Buscadores en secciones de configuración ──────────────────── */
 
-/**
- * Filtra las filas de un <tbody> según texto en columnas indicadas.
- * @param {string} tbodyId   - ID del tbody
- * @param {string} inputId   - ID del input de búsqueda
- * @param {number[]} cols    - Índices de columnas donde buscar (0-based)
- */
+/* ── Buscadores de configuración ─────────────────────────────── */
 function filterCfgTable(tbodyId, inputId, cols) {
   const q     = (document.getElementById(inputId)?.value || '').toLowerCase().trim();
   const tbody = document.getElementById(tbodyId);
   if (!tbody) return;
-  const rows = tbody.querySelectorAll('tr');
   let visible = 0;
-  rows.forEach(tr => {
+  tbody.querySelectorAll('tr:not(.cfg-empty-row)').forEach(tr => {
     const text = cols.map(i => tr.cells[i]?.textContent || '').join(' ').toLowerCase();
     const show = !q || text.includes(q);
     tr.style.display = show ? '' : 'none';
     if (show) visible++;
   });
-  // Mostrar fila vacía si no hay resultados
   let emptyRow = tbody.querySelector('tr.cfg-empty-row');
   if (!visible && q) {
     if (!emptyRow) {
@@ -3535,23 +3019,17 @@ function filterCfgTable(tbodyId, inputId, cols) {
   }
 }
 
-/**
- * Filtra los items del org-list por texto.
- */
 function filterOrgList() {
   const q    = (document.getElementById('orgs-search')?.value || '').toLowerCase().trim();
   const list = document.getElementById('org-list');
   if (!list) return;
-  // Los items son divs con clase nav-item generados por renderOrgList en orgs.js
   const items = [...list.children].filter(el => el.classList.contains('nav-item'));
   let visible = 0;
   items.forEach(el => {
-    const text = el.textContent.toLowerCase();
-    const show = !q || text.includes(q);
+    const show = !q || el.textContent.toLowerCase().includes(q);
     el.style.display = show ? '' : 'none';
     if (show) visible++;
   });
-  // Mensaje vacío
   let emptyEl = list.querySelector('.org-empty-msg');
   if (!visible && q) {
     if (!emptyEl) {
@@ -3560,17 +3038,13 @@ function filterOrgList() {
       emptyEl.style.cssText = 'padding:12px 8px;text-align:center;font-size:12px;color:var(--text3)';
       list.appendChild(emptyEl);
     }
-    emptyEl.textContent = `Sin resultados para "${q}"`;
+    emptyEl.textContent   = `Sin resultados para "${q}"`;
     emptyEl.style.display = '';
   } else if (emptyEl) {
     emptyEl.style.display = 'none';
   }
 }
 
-/**
- * Filtra los dest-card del modal-dest-grid por texto.
- * Los items son divs con clase dest-card generados por _renderDestStep.
- */
 function filterDestGrid() {
   const q    = (document.getElementById('dest-search')?.value || '').toLowerCase().trim();
   const grid = document.getElementById('modal-dest-grid');
@@ -3578,12 +3052,10 @@ function filterDestGrid() {
   const cards = grid.querySelectorAll('.dest-card');
   let visible = 0;
   cards.forEach(card => {
-    const text = card.textContent.toLowerCase();
-    const show = !q || text.includes(q);
+    const show = !q || card.textContent.toLowerCase().includes(q);
     card.style.display = show ? '' : 'none';
     if (show) visible++;
   });
-  // Mensaje vacío
   let emptyEl = grid.querySelector('.dest-empty-msg');
   if (!visible && q && cards.length) {
     if (!emptyEl) {
@@ -3592,54 +3064,49 @@ function filterDestGrid() {
       emptyEl.style.cssText = 'text-align:center;padding:20px;color:var(--text3);font-size:13px';
       grid.appendChild(emptyEl);
     }
-    emptyEl.textContent = `Sin resultados para "${q}"`;
+    emptyEl.textContent   = `Sin resultados para "${q}"`;
     emptyEl.style.display = '';
   } else if (emptyEl) {
     emptyEl.style.display = 'none';
   }
 }
 
+/* ══════════════════════════════════════════════════════════════
+   MODAL DESTINOS (panel lateral de integraciones)
+══════════════════════════════════════════════════════════════ */
 function _renderValDestinos(status, responses) {
   const container = document.getElementById('res-destinos');
   if (!container) return;
 
   const targets = status?.targets || [];
-  const results = (responses?.results || []);
+  const results = responses?.results || [];
 
   if (!targets.length) {
     container.innerHTML = `
       <div class="card" style="margin-top:16px">
         <div class="card-header"><h3>Integraciones / Destinos</h3></div>
         <div class="card-body">
-          <div style="text-align:center;padding:20px;color:var(--text3);font-size:13px">
-            Sin destinos asignados a esta unidad
-          </div>
+          <div style="text-align:center;padding:20px;color:var(--text3);font-size:13px">Sin destinos asignados a esta unidad</div>
         </div>
       </div>`;
     return;
   }
 
-  // Agrupar eventos por nombre de destino
   const grouped = {};
   results.forEach(r => {
     const key = r.target || r.destination_id || '—';
     if (!grouped[key]) grouped[key] = [];
     grouped[key].push(r);
   });
-  window._valDestinosData = grouped;
-  window._valDestinosTargets = targets;
-
   window._valDestinosData    = grouped;
   window._valDestinosTargets = targets;
 
-  // Detectar destinos con campos faltantes
   const missingByDest = {};
   results.forEach(r => {
     const key = r.target || r.destination_id || '—';
     if (r.forward_resp?.startsWith('CAMPOS_FALTANTES:')) {
       if (!missingByDest[key]) missingByDest[key] = new Set();
-      r.forward_resp.replace('CAMPOS_FALTANTES:', '').trim()
-        .split(', ').forEach(c => missingByDest[key].add(c));
+      r.forward_resp.replace('CAMPOS_FALTANTES:', '').trim().split(', ').forEach(c => missingByDest[key].add(c));
     }
   });
 
@@ -3653,25 +3120,12 @@ function _renderValDestinos(status, responses) {
   }
 
   const buttons = targets.map(tName => {
-    const evs  = grouped[tName] || [];
-    const last = evs[0];
-    const ok   = last?.ok;
-    let dotColor = 'var(--text3)';
+    const evs       = grouped[tName] || [];
+    const last      = evs[0];
+    const ok        = last?.ok;
+    let dotColor    = 'var(--text3)';
     if (ok === true)  dotColor = 'var(--green)';
     if (ok === false) dotColor = 'var(--red)';
-    const lastTime = _timeAgo(last?.at);
-    return `
-      <button onclick="openDestModal('${tName.replace(/'/g,"\'")}', '${dotColor}')"
-        style="display:flex;align-items:center;gap:10px;padding:10px 14px;
-          border-radius:8px;border:1px solid var(--border);background:var(--bg2);
-          cursor:pointer;text-align:left;transition:border-color .15s;width:100%"
-        onmouseover="this.style.borderColor='var(--sky)'"
-        onmouseout="this.style.borderColor='var(--border)'">
-        <span style="width:9px;height:9px;border-radius:99px;background:${dotColor};flex-shrink:0;display:inline-block"></span>
-        <span style="flex:1;font-size:13px;font-weight:500;color:var(--text)">${tName}</span>
-        <span style="font-size:11px;color:var(--text3)">${lastTime}</span>
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3);flex-shrink:0">
-          <polyline points="9 18 15 12 9 6"/>
     const lastTime   = _timeAgo(last?.at);
     const hasMissing = missingByDest[tName]?.size > 0;
     const btnColor   = hasMissing ? 'rgba(251,191,36,.3)' : 'var(--border)';
@@ -3682,8 +3136,7 @@ function _renderValDestinos(status, responses) {
       <div style="font-size:11px;color:var(--amber);background:var(--amber-dim);
         border:1px solid rgba(251,191,36,.2);border-radius:var(--radius-sm);
         padding:6px 10px;margin-top:6px;display:flex;align-items:flex-start;gap:6px">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-          style="flex-shrink:0;margin-top:1px">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-top:1px">
           <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
           <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
         </svg>
@@ -3693,7 +3146,7 @@ function _renderValDestinos(status, responses) {
 
     return `
       <div>
-        <button onclick="openDestModal('${tName.replace(/'/g,"\'")}', '${dotFinal}')"
+        <button onclick="openDestModal('${tName.replace(/'/g,"\\'")}', '${dotFinal}')"
           style="display:flex;align-items:center;gap:10px;padding:10px 14px;
             border-radius:var(--radius-sm);border:1px solid ${btnColor};background:${btnBg};
             cursor:pointer;text-align:left;transition:border-color .15s;width:100%"
@@ -3719,30 +3172,23 @@ function _renderValDestinos(status, responses) {
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
             <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
-          </svg>
-          Ver todos
+          </svg>Ver todos
         </button>
       </div>
-      <div class="card-body" style="display:grid;gap:8px;padding:12px">
-        ${buttons}
-      </div>
+      <div class="card-body" style="display:grid;gap:8px;padding:12px">${buttons}</div>
     </div>`;
 }
 
-
-// ─── Abrir modal con todos los destinos (sidebar + detalle) ─────
 function openDestModalAll() {
   _openDestModalBase();
   const targets = window._valDestinosTargets || [];
   const grouped = window._valDestinosData   || {};
-  // Preferir el primero que tenga datos; si no, el primero disponible
-  const first = targets.find(t => (grouped[t]||[]).length > 0) || targets[0];
+  const first   = targets.find(t => (grouped[t]||[]).length > 0) || targets[0];
   if (first) setTimeout(() => _destModalSelectTab(first), 50);
 }
 
 function openDestModal(tName, dotColor) {
   _openDestModalBase();
-  // Pequeño delay para que el DOM esté listo antes de seleccionar
   setTimeout(() => _destModalSelectTab(tName), 50);
 }
 
@@ -3753,12 +3199,10 @@ function _openDestModalBase() {
   const targets = window._valDestinosTargets || [];
   const grouped = window._valDestinosData   || {};
 
-  // ── Si el nuevo layout no existe en el HTML, inyectarlo ──────
   if (!document.getElementById('dest-modal-sidebar')) {
-    overlay.style.cssText = `position:fixed;inset:0;z-index:9999;display:flex;
-      align-items:center;justify-content:center;
-      background:rgba(0,0,0,.65);backdrop-filter:blur(4px);padding:16px;`;
-    overlay.onclick = e => { if (e.target === overlay) overlay.style.display = 'none'; };
+    overlay.classList.add('show');
+    overlay.style.display = 'flex';
+    overlay.onclick = e => { if (e.target === overlay) closeDestModal(); };
     overlay.innerHTML = `
       <div style="background:var(--bg1,#0f1929);border:1px solid var(--border);border-radius:16px;
         width:min(900px,96vw);max-height:88vh;display:flex;flex-direction:column;
@@ -3782,38 +3226,12 @@ function _openDestModalBase() {
           <div id="dest-modal-sidebar" style="width:210px;flex-shrink:0;border-right:1px solid var(--border);
             overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:3px"></div>
           <div id="dest-modal-body" style="flex:1;overflow-y:auto;padding:18px;min-width:0">
-            <div style="text-align:center;padding:40px;color:var(--text3)">
-              Selecciona un destino del panel izquierdo
-            </div>
-    overlay.style.cssText = '';
-    overlay.className = 'modal-overlay';
-    overlay.onclick = e => { if (e.target === overlay) closeDestModal(); };
-    overlay.innerHTML = `
-      <div class="dest-modal-shell">
-        <div class="dest-modal-header">
-          <div style="display:flex;align-items:center;gap:10px">
-            <div style="width:28px;height:28px;border-radius:8px;background:var(--sky-dim);
-              display:flex;align-items:center;justify-content:center;flex-shrink:0">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--sky)" stroke-width="2">
-                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.99 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.9 1.27h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 8.91a16 16 0 0 0 5.61 5.61l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
-              </svg>
-            </div>
-            <h3 style="font-size:14px;font-weight:600">Integraciones / Destinos</h3>
-            <span id="dest-modal-badge" class="badge sky"></span>
-          </div>
-          <button class="btn sm" onclick="closeDestModal()"
-            style="width:28px;height:28px;padding:0;justify-content:center;flex-shrink:0">✕</button>
-        </div>
-        <div class="dest-modal-content">
-          <div id="dest-modal-sidebar" class="dest-modal-sidebar"></div>
-          <div id="dest-modal-body" class="dest-modal-body">
-            <div class="empty-state" style="padding:48px 20px"><p>Selecciona un destino</p></div>
+            <div style="text-align:center;padding:40px;color:var(--text3)">Selecciona un destino del panel izquierdo</div>
           </div>
         </div>
       </div>`;
   }
 
-  // Poblar sidebar
   const sidebar = document.getElementById('dest-modal-sidebar');
   const badge   = document.getElementById('dest-modal-badge');
   if (badge) badge.textContent = `${targets.length} destino${targets.length !== 1 ? 's' : ''}`;
@@ -3823,7 +3241,7 @@ function _openDestModalBase() {
       const evs  = grouped[tName] || [];
       const last = evs[0];
       const ok   = last?.ok;
-      let dot = '#64748b';
+      let dot    = '#64748b';
       if (ok === true)  dot = '#22c55e';
       if (ok === false) dot = '#ef4444';
       return `
@@ -3840,7 +3258,6 @@ function _openDestModalBase() {
     }).join('');
   }
 
-  // Mostrar — compatible con class.show Y display directo
   overlay.classList.add('show');
   overlay.style.display = 'flex';
 }
@@ -3853,54 +3270,26 @@ function closeDestModal() {
 }
 
 function _destModalSelectTab(tName, btnEl) {
-  // Highlight tab activo
   document.querySelectorAll('#dest-modal-sidebar button').forEach(b => {
-    b.style.background = '';
+    b.style.background  = '';
     b.style.borderColor = 'transparent';
-    b.style.color = '';
   });
-  const activeBtn = btnEl || document.getElementById('dest-tab-' + tName.replace(/\s/g,'_'));
+  const activeBtn = btnEl || document.getElementById('dest-tab-' + tName.replace(/\W/g,'_'));
   if (activeBtn) {
-    activeBtn.style.background    = 'var(--bg2)';
-    activeBtn.style.borderColor   = 'var(--border)';
+    activeBtn.style.background  = 'var(--bg2)';
+    activeBtn.style.borderColor = 'var(--border)';
   }
-function closeDestModal() {
-  const ov = document.getElementById('dest-modal-overlay');
-  if (!ov) return;
-  ov.classList.remove('show');
-  ov.style.display = 'none';
-}
-
-function _destModalSelectTab(tName, btnEl) {
-  // Highlight tab activo
-  document.querySelectorAll('#dest-modal-sidebar .dest-sidebar-btn').forEach(b => b.classList.remove('active'));
-  const activeBtn = btnEl || document.querySelector('#dest-modal-sidebar .dest-sidebar-btn');
-  if (activeBtn) activeBtn.classList.add('active');
 
   const body    = document.getElementById('dest-modal-body');
   const grouped = window._valDestinosData || {};
   const evs     = grouped[tName] || [];
 
-  function _fmt(ts) {
-    if (!ts) return '—';
-    return new Date(ts).toLocaleString('es-CL');
-  }
+  function _fmt(ts) { return ts ? new Date(ts).toLocaleString('es-CL') : '—'; }
 
   if (!evs.length) {
     body.innerHTML = `
-      <div style="text-align:center;padding:48px 24px;color:var(--text3)">
-        <div style="font-size:36px;margin-bottom:12px">📡</div>
-        <div style="font-size:14px;font-weight:600;color:var(--text2);margin-bottom:6px">
-          Sin envíos registrados
-        </div>
-        <div style="font-size:12px;line-height:1.6;max-width:280px;margin:0 auto">
-          El destino <strong style="color:var(--text)">${tName}</strong> está asignado
-          a esta unidad pero aún no ha recibido datos GPS.<br>
-          Los envíos aparecerán aquí en cuanto la unidad transmita.
-        </div>
       <div class="empty-state" style="padding:40px 20px">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
-          style="width:32px;height:32px;margin-bottom:10px;opacity:.3">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:32px;height:32px;margin-bottom:10px;opacity:.3">
           <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.99 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.9 1.27h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 8.91a16 16 0 0 0 5.61 5.61l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
         </svg>
         <p>Sin envíos para <strong>${tName}</strong></p>
@@ -3911,7 +3300,6 @@ function _destModalSelectTab(tName, btnEl) {
 
   const last = evs[0];
 
-  // ── Resumen del último envío ──────────────────────────────────
   const summaryHTML = `
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px">
       <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px">
@@ -3928,21 +3316,6 @@ function _destModalSelectTab(tName, btnEl) {
       </div>
       <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px">
         <div class="label" style="margin-bottom:4px">Último resultado</div>
-    <div class="dest-detail-stats">
-      <div class="dest-stat-card">
-        <div class="dest-stat-label">Destino</div>
-        <div class="dest-stat-value">${tName}</div>
-      </div>
-      <div class="dest-stat-card">
-        <div class="dest-stat-label">Total envíos</div>
-        <div class="dest-stat-value">${evs.length}</div>
-      </div>
-      <div class="dest-stat-card">
-        <div class="dest-stat-label">Último envío</div>
-        <div class="dest-stat-value" style="font-size:13px">${_fmt(last.at)}</div>
-      </div>
-      <div class="dest-stat-card">
-        <div class="dest-stat-label">Último resultado</div>
         <div>${last.ok === null || last.ok === undefined
           ? `<span style="color:var(--text3);font-size:12px">Sin datos</span>`
           : last.ok
@@ -3955,38 +3328,30 @@ function _destModalSelectTab(tName, btnEl) {
         <div class="label" style="margin-bottom:4px">Última posición</div>
         <div style="font-size:12px;font-family:'DM Mono',monospace;color:var(--sky)">
           ${parseFloat(last.tx.lat).toFixed(6)}, ${parseFloat(last.tx.lon).toFixed(6)}
-          ${last.tx.speed !== null && last.tx.speed !== undefined ? ` · ${last.tx.speed} km/h` : ''}
+          ${last.tx.speed != null ? ` · ${last.tx.speed} km/h` : ''}
         </div>
       </div>` : ''}
     </div>`;
 
-  // ── Tabla de historial paginada ───────────────────────────────
   const PAGE = 20;
-  let page = 0;
+  let page   = 0;
 
   function renderPage() {
-    const slice = evs.slice(page * PAGE, (page + 1) * PAGE);
+    const slice     = evs.slice(page * PAGE, (page + 1) * PAGE);
     const ok_count  = evs.filter(e => e.ok === true).length;
     const err_count = evs.filter(e => e.ok === false).length;
 
     body.innerHTML = summaryHTML + `
-      <!-- Estadísticas rápidas -->
       <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
         <span class="badge green">✅ ${ok_count} OK</span>
         <span class="badge red">❌ ${err_count} Error</span>
         ${evs.length - ok_count - err_count > 0
           ? `<span class="badge" style="background:var(--bg2)">⬜ ${evs.length - ok_count - err_count} Sin datos</span>` : ''}
       </div>
-
-      <!-- Cabecera historial -->
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
         <div class="label">Historial de envíos</div>
-        <span style="font-size:11px;color:var(--text3)">
-          ${page * PAGE + 1}–${Math.min((page+1)*PAGE, evs.length)} de ${evs.length}
-        </span>
+        <span style="font-size:11px;color:var(--text3)">${page * PAGE + 1}–${Math.min((page+1)*PAGE, evs.length)} de ${evs.length}</span>
       </div>
-
-      <!-- Tabla -->
       <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden">
         <table style="width:100%;border-collapse:collapse;font-size:12px">
           <thead>
@@ -3995,21 +3360,12 @@ function _destModalSelectTab(tName, btnEl) {
               <th style="padding:8px 12px;text-align:left;font-weight:600">Resultado</th>
               <th style="padding:8px 12px;text-align:left;font-weight:600">Respuesta</th>
               <th style="padding:8px 12px;text-align:left;font-weight:600">Velocidad</th>
-      <div class="table-wrap" style="max-height:300px">
-        <table style="width:100%;border-collapse:collapse;font-size:12px">
-          <thead>
-            <tr>
-              <th>Fecha</th>
-              <th>Resultado</th>
-              <th>Respuesta</th>
-              <th>Velocidad</th>
             </tr>
           </thead>
           <tbody>
             ${slice.map(e => `
               <tr style="border-top:1px solid var(--border)"
-                onmouseenter="this.style.background='var(--bg2)'"
-                onmouseleave="this.style.background=''">
+                onmouseenter="this.style.background='var(--bg2)'" onmouseleave="this.style.background=''">
                 <td style="padding:7px 12px;white-space:nowrap;color:var(--text2)">${_fmt(e.at)}</td>
                 <td style="padding:7px 12px">
                   ${e.ok === true  ? '<span class="badge green" style="font-size:10px">OK</span>'
@@ -4022,14 +3378,12 @@ function _destModalSelectTab(tName, btnEl) {
                   ${e.response ? e.response.slice(0,60) : '—'}
                 </td>
                 <td style="padding:7px 12px;color:var(--text2)">
-                  ${e.tx?.speed !== null && e.tx?.speed !== undefined ? e.tx.speed + ' km/h' : '—'}
+                  ${e.tx?.speed != null ? e.tx.speed + ' km/h' : '—'}
                 </td>
               </tr>`).join('')}
           </tbody>
         </table>
       </div>
-
-      <!-- Paginación -->
       ${evs.length > PAGE ? `
       <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px">
         <button onclick="_destPage(-1)" class="btn sm" ${page === 0 ? 'disabled' : ''}>← Anterior</button>
@@ -4047,8 +3401,6 @@ function _destModalSelectTab(tName, btnEl) {
   renderPage();
 }
 
-
-// Cerrar al hacer clic en el fondo del overlay
 document.addEventListener('click', e => {
   const overlay = document.getElementById('dest-modal-overlay');
   if (e.target === overlay) closeDestModal();
