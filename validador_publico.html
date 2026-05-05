@@ -208,8 +208,8 @@ async function vpBuscar(){
     renderBase(data);
     show('result-panel');
 
-    // Paso 2: datos GPS en paralelo (puede tardar más, tiene caché)
-    loadGPS(data.unit.plate, data.unit.imei);
+    // Paso 2: datos GPS vienen incluidos en la respuesta
+    renderGPS(data.gps);
 
   } catch(err){
     hide('vp-loading');
@@ -240,63 +240,54 @@ function renderBase(data){
   }
 }
 
-async function loadGPS(plate, imei){
-  // Usar el token público de GPS si existe, o el endpoint sin token
-  try {
-    const res  = await fetch(`${API}/gps/unit-status?plate=${encodeURIComponent(plate)}`);
-    const data = await res.json();
+function renderGPS(gps){
+  if (!gps) { setGPSSinDatos(); return; }
 
-    if (!res.ok || data.error) {
-      setGPSSinDatos();
-      return;
-    }
+  // Badge transmisión
+  const txBadge = document.getElementById('vp-badge-tx');
+  const txTxt   = document.getElementById('vp-badge-tx-txt');
+  if (gps.transmitting){
+    txBadge.className = 'badge green';
+    txTxt.textContent = 'Transmitiendo';
+  } else if (gps.last_event) {
+    txBadge.className = 'badge amber';
+    txTxt.textContent = 'Sin transmisión reciente';
+  } else {
+    txBadge.className = 'badge gray';
+    txTxt.textContent = 'Sin datos GPS';
+  }
 
-    // Badge transmisión
-    const txBadge = document.getElementById('vp-badge-tx');
-    const txTxt   = document.getElementById('vp-badge-tx-txt');
-    if (data.isTransmitting){
-      txBadge.className = 'badge green';
-      txTxt.textContent = 'Transmitiendo';
-    } else {
-      txBadge.className = 'badge amber';
-      txTxt.textContent = 'Sin transmisión reciente';
-    }
+  // Velocidad
+  txt('vp-speed', gps.speed != null ? Number(gps.speed).toFixed(0) + ' km/h' : '—');
 
-    // Velocidad
-    txt('vp-speed', data.speed != null ? Number(data.speed).toFixed(0) + ' km/h' : '—');
+  // Ignición
+  const ignEl  = document.getElementById('vp-ign');
+  const ignBdg = document.getElementById('vp-badge-ign');
+  const ignTxt = document.getElementById('vp-badge-ign-txt');
+  if (gps.ignition === true){
+    ignEl.textContent = '🔑 Encendida'; ignEl.className = 'kv-value green';
+    ignBdg.className  = 'badge green';  ignTxt.textContent = '🔑 Encendida';
+    show('vp-badge-ign');
+  } else if (gps.ignition === false){
+    ignEl.textContent = '⚫ Apagada'; ignEl.className = 'kv-value dim';
+    ignBdg.className  = 'badge gray'; ignTxt.textContent = '⚫ Apagada';
+    show('vp-badge-ign');
+  } else {
+    ignEl.textContent = '—'; ignEl.className = 'kv-value';
+  }
 
-    // Ignición
-    const ignEl  = document.getElementById('vp-ign');
-    const ignBdg = document.getElementById('vp-badge-ign');
-    const ignTxt = document.getElementById('vp-badge-ign-txt');
-    if (data.ignition === true){
-      ignEl.textContent  = '🔑 Encendida'; ignEl.className = 'kv-value green';
-      ignBdg.className   = 'badge green';  ignTxt.textContent = '🔑 Encendida';
-      show('vp-badge-ign');
-    } else if (data.ignition === false){
-      ignEl.textContent  = '⚫ Apagada';  ignEl.className = 'kv-value dim';
-      ignBdg.className   = 'badge gray';  ignTxt.textContent = '⚫ Apagada';
-      show('vp-badge-ign');
-    } else {
-      ignEl.textContent = '—'; ignEl.className = 'kv-value';
-    }
+  // Último reporte
+  txt('vp-ts',  fmtTs(gps.last_event));
+  txt('vp-ago', timeAgo(gps.last_event));
 
-    // Último reporte
-    const lastAt = data.tcpLastAt || data.lastAt || null;
-    txt('vp-ts',  fmtTs(lastAt));
-    txt('vp-ago', timeAgo(lastAt));
-
-    // Mapa
-    const lat = Number(data.lat || 0);
-    const lon = Number(data.lon || 0);
-    if (lat && lon){
-      renderMap(lat, lon, plate, lastAt);
-      txt('vp-coords', lat.toFixed(5) + ', ' + lon.toFixed(5));
-      show('vp-map-card');
-    }
-
-  } catch(e){
-    setGPSSinDatos();
+  // Mapa
+  const lat = Number(gps.lat || 0);
+  const lon = Number(gps.lon || 0);
+  if (lat && lon){
+    const plate = document.getElementById('vp-plate').textContent;
+    renderMap(lat, lon, plate, gps.last_event);
+    txt('vp-coords', lat.toFixed(5) + ', ' + lon.toFixed(5));
+    show('vp-map-card');
   }
 }
 
