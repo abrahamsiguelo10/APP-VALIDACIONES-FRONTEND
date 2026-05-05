@@ -307,6 +307,7 @@
       width: min(460px, 100%);
       position: relative;
       z-index: 1;
+      margin: 0 auto;
     }
 
     /* ── Logo ── */
@@ -349,11 +350,11 @@
     }
 
     .login-access-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-      margin-bottom: 16px;
-    }
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
 
     .login-access-card {
       position: relative;
@@ -612,6 +613,33 @@
         </div>
 
 
+         <!-- VALIDADOR -->
+
+         <!-- Validador GPS — acceso directo sin login -->
+        <div class="login-access-card"
+             id="lac-validador"
+             onclick="window.location.href='validador_publico.html'"
+             style="grid-column:1/-1;flex-direction:row;align-items:center;text-align:left;gap:16px;padding:16px 20px;cursor:pointer">
+          <div class="lac-icon" style="background:rgba(34,197,94,.12);color:#34d399;--lac-glow:rgba(34,197,94,.4);flex-shrink:0">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <circle cx="11" cy="11" r="8"/>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+          </div>
+          <div style="flex:1">
+            <div class="lac-label">Validador GPS</div>
+            <div class="lac-desc">Consulta el estado de una unidad por patente o IMEI</div>
+          </div>
+          <div style="opacity:.4;flex-shrink:0">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+              <polyline points="15 3 21 3 21 9"/>
+              <line x1="10" y1="14" x2="21" y2="3"/>
+            </svg>
+          </div>
+        </div>
+
+
       </div>
 
       <button class="login-continue-btn" id="btn-login-continue" onclick="_lacContinue()">
@@ -704,8 +732,7 @@
 
     function _lacSelect(tipo, el) {
       _lacTipo = tipo;
-      document.querySelectorAll('.login-access-card:not(.coming-soon)').forEach(c => c.classList.remove('active'));
-      el.classList.add('active');
+      document.querySelectorAll('.login-access-card:not(#lac-validador)').forEach(c => c.classList.remove('active'));
     }
 
     function _lacContinue() {
